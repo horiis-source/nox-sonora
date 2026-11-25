@@ -1936,7 +1936,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 19:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 19:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -13879,11 +13879,16 @@ if(panel&&window.MutationObserver)new MutationObserver(syncChips).observe(panel,
 var rbSrcEl=document.getElementById('rbSrc');
 if(rbSrcEl&&window.MutationObserver)new MutationObserver(syncChips).observe(rbSrcEl,{attributes:true,attributeFilter:['class'],subtree:true});
 if(rbSrcEl)rbSrcEl.addEventListener('click',function(){setTimeout(syncChips,0)});
-/* ---- 2) BREATH off page 6 ---- */
+/* ---- 2) BREATH off page 6 ----
+   BUILD 2026-11-22 19:30: the hiding below is superseded by
+   the 19:30 pack at the end of the file — BREATH LAB now sits
+   in #brZone under the same frosted-glass lock as EMBOUCHURE,
+   visible but untouchable. hideBreath therefore leaves
+   #brZone alone; it still stops a running measurement. */
 function hideBreath(){
  var t5=el('t5');if(!t5)return;
  Array.prototype.forEach.call(t5.children,function(ch){
-  if(ch.id==='t7'||ch.id==='thmCard')return;
+  if(ch.id==='t7'||ch.id==='thmCard'||ch.id==='brZone')return;
   ch.style.setProperty('display','none','important');
  });
  try{if(window.__brTest&&window.__brTest.state().running)window.__brTest.stop()}catch(e){}
@@ -14237,7 +14242,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-1915 (the sync step sets
+   master: sonora-20261122-1930 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -14645,6 +14650,115 @@ if(lb)lb.addEventListener('click',function(){setTimeout(function(){vcTexts();loc
 window.__vc={supported:!!SR,listening:function(){return listening},micPaused:function(){return micPaused},
  parse:parseCmd,fix:function(t){return vcFix(norm(t))},hear:function(t){var r=runCommand(t);showResult(t,r);return r},
  fab:fab,panel:panel,start:startListen,stop:stopListen};
+})();
+</script>
+
+<style id="b1930css">
+/* ===== BUILD 2026-11-22 19:30: BREATH LAB locked in place —
+   the same veil as EMBOUCHURE (BUILD 18:00, thinned 18:15):
+   rgba(5,10,18,.16), blur(1px) brightness(.9) saturate(.88),
+   🔐 over a sticky centre, same type, same shadows. ===== */
+#brZone{position:relative}
+#brZone.brLocked>*:not(#brLock){pointer-events:none!important}
+#brLock{position:absolute;inset:0;z-index:999;background:rgba(5,10,18,.16);
+ -webkit-backdrop-filter:blur(1px) brightness(.9) saturate(.88);
+ backdrop-filter:blur(1px) brightness(.9) saturate(.88)}
+#brLockIn{position:sticky;top:32vh;text-align:center;padding:28px 16px;pointer-events:none}
+#brLockKey{font-size:34px;line-height:1;filter:drop-shadow(0 0 12px rgba(185,243,106,.5)) drop-shadow(0 2px 6px rgba(0,0,0,.65))}
+#brLockTxt{margin-top:10px;font-size:13px;font-weight:700;letter-spacing:.14em;color:#eef5e6;text-shadow:0 1px 10px rgba(0,0,0,.9),0 0 3px rgba(0,0,0,.95)}
+</style>
+<script id="b1930">
+/* ===== BUILD 2026-11-22 19:30 (JS): BREATH LAB takes the
+   EMBOUCHURE treatment. The 15:45 pack hid every BREATH-owned
+   child of page 6 where it sat; this pack gathers them into
+   #brZone at the head of page 6 — right before EMBOUCHURE,
+   COLOR & SCENE untouched at the foot — shows them again
+   under the same thin frosted veil with the same 🔐 and the
+   same words ("unlocks in a future update"), and makes them
+   inert. The BREATH code and its saved data stay in the file
+   exactly as they were, ready to return on unlock.
+   Bypass audit, same pass: the only programmatic doors into
+   BREATH were the two packs' test hooks (__brTest for the
+   motion lab, __bcTest for the camera lab). Their action
+   methods are sealed below (state() stays readable — the
+   app's own guards read it). Everything else was checked and
+   has no BREATH route: no card or button outside page 6
+   (live-DOM audit), no voice keyword (the voice pack's tab
+   words reach page 6 only as アンブシュア/EMBOUCHURE, and
+   its commands hold no breath action), no keyboard shortcut
+   (the only keydown in the file is the sealed coach's chat
+   input), no URL parameter or hash handling anywhere in the
+   file, TODAY'S CARD / TODAY'S A hold practice stats and the
+   reference A only, and the AI coach — itself sealed since
+   17:45 — offers no breath tool. A capture-phase guard on
+   #brZone also stops synthetic clicks from reaching the
+   controls under the veil. */
+(function(){
+'use strict';
+function lg(){try{return localStorage.getItem('noxsonora_lang')==='jp'?'jp':'en'}catch(e){return 'en'}}
+function JP(){return lg()==='jp'}
+var t5=document.getElementById('t5');
+var zone=null,brLockTxt=null,guardDone=false;
+function lockText(){
+ if(brLockTxt)brLockTxt.textContent=JP()?'今後のアップデートで解放されます':'Unlocks in a future update';
+}
+function isBreathChild(ch){return ch.id!=='t7'&&ch.id!=='thmCard'&&ch.id!=='brZone'}
+function buildZone(){
+ if(!t5)return;
+ zone=document.getElementById('brZone');
+ if(!zone){
+  zone=document.createElement('div');zone.id='brZone';
+  var anchor=null;
+  Array.prototype.forEach.call(t5.children,function(ch){if(!anchor&&isBreathChild(ch))anchor=ch});
+  if(anchor)t5.insertBefore(zone,anchor);
+  else{var t7=document.getElementById('t7');if(t7&&t7.parentNode===t5)t5.insertBefore(zone,t7);else t5.insertBefore(zone,t5.firstChild)}
+ }
+ /* gather any BREATH-owned children still sitting directly on page 6 */
+ Array.prototype.slice.call(t5.children).forEach(function(ch){
+  if(!isBreathChild(ch))return;
+  zone.appendChild(ch);
+ });
+ /* visible again (undo the 15:45 display:none) and inert,
+    exactly the EMBOUCHURE lock's treatment */
+ Array.prototype.forEach.call(zone.children,function(ch){
+  if(ch.id==='brLock')return;
+  ch.style.removeProperty('display');
+  try{ch.inert=true;ch.setAttribute('aria-hidden','true')}catch(e){}
+ });
+ zone.classList.add('brLocked');
+ if(!zone.querySelector('#brLock')){
+  var lk=document.createElement('div');lk.id='brLock';
+  lk.innerHTML='<div id="brLockIn"><div id="brLockKey">🔐</div><div id="brLockTxt"></div></div>';
+  zone.appendChild(lk);
+ }
+ brLockTxt=zone.querySelector('#brLockTxt');lockText();
+ if(!guardDone){
+  guardDone=true;
+  ['click','pointerdown','pointerup','mousedown','mouseup','touchstart','touchend','dblclick','contextmenu','keydown','keyup','input','change','submit'].forEach(function(t){
+   zone.addEventListener(t,function(e){e.stopPropagation()},true);
+  });
+ }
+}
+/* stop anything already running, with the real hooks, before sealing */
+try{var bt0=window.__brTest;if(bt0&&bt0.state&&(bt0.state().running||bt0.state().pacerOn))bt0.stop()}catch(e){}
+function sealHooks(){
+ ['__brTest','__bcTest'].forEach(function(k){
+  var o=window[k];if(!o)return;
+  Object.keys(o).forEach(function(m){
+   if(m==='state')return;
+   if(typeof o[m]==='function')o[m]=function(){return{locked:true}};
+  });
+ });
+}
+buildZone();
+sealHooks();
+var brIv=setInterval(function(){buildZone();sealHooks()},400);
+setTimeout(function(){clearInterval(brIv)},15000);
+var navEl=document.getElementById('nav');
+if(navEl)navEl.addEventListener('click',function(){setTimeout(function(){buildZone();sealHooks()},300)});
+var lb=document.getElementById('langBtn');
+if(lb)lb.addEventListener('click',function(){setTimeout(lockText,520)});
+window.__brLock={locked:true,overlay:function(){return document.getElementById('brLock')},zone:function(){return document.getElementById('brZone')}};
 })();
 </script>
 </body></html>
