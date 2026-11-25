@@ -716,6 +716,7 @@ function spawnDust(x,y,n,now){
 }
 var t0=performance.now(), done=false, raf=0;
 var penTrail=[];
+var meteorBorn=-1, METEOR_DUR=reduced?900:1150;
 function frame(){
  if(done)return;
  var now=performance.now(), t=now-t0;
@@ -782,6 +783,29 @@ function frame(){
   g.drawImage(sprHalo,penX-15,py-15,30,30);
   g.drawImage(sprCore,penX-5,py-5,10,10);
  }
+ /* the one shooting star: fired the instant the writing completes
+    (t reaches T_WRITE1) and never again — a single long-tailed
+    star crossing the upper sky while the finished name holds.
+    It fires nowhere else in the film. */
+ if(meteorBorn<0&&t>=T_WRITE1&&t<T_TAG)meteorBorn=now;
+ if(meteorBorn>=0){
+  var ma=now-meteorBorn;
+  if(ma<METEOR_DUR){
+   var mp=ma/METEOR_DUR, me=1-(1-mp)*(1-mp);
+   var mAl=Math.sin(Math.PI*Math.min(1,mp*1.05));
+   var mPos=function(u){return{x:-60+(W+120)*u,y:H*0.13+H*0.09*u}};
+   var hp=mPos(me);
+   for(var ti=40;ti>=1;ti--){
+    var tu=me-ti*0.0096;if(tu<0)continue;
+    var tp2=mPos(tu), tf=1-ti/40, ths=4+15*tf*tf;
+    g.globalAlpha=Math.max(0,mAl*0.42*tf*tf);
+    g.drawImage(sprHalo,tp2.x-ths/2,tp2.y-ths/2,ths,ths);
+   }
+   g.globalAlpha=Math.max(0,mAl);
+   g.drawImage(sprHalo,hp.x-19,hp.y-19,38,38);
+   g.drawImage(sprCore,hp.x-7,hp.y-7,14,14);
+  }
+ }
  g.globalAlpha=1;
  g.globalCompositeOperation='source-over';
  if(t>=T_SETTLE)logo.style.opacity='1';
@@ -810,7 +834,7 @@ raf=requestAnimationFrame(frame);
 <span id="ttl" hidden></span>
 <section class="tab on" id="t0">
  <div class="card glass mainc">
-  <div class="lab" style="display:flex;justify-content:space-between;align-items:center"><span>PITCH</span><span style="letter-spacing:.02em;font-size:13px;color:var(--txt)">REF A = <button class="hbtn" id="hzDn">−</button><b id="refTop">442</b><button class="hbtn" id="hzUp">＋</button> Hz · <button class="hbtn" id="tempBtn"><span id="tempLbl">EQUAL</span></button><span id="transLbl"></span></span></div>
+  <div class="lab" id="pitchLab"><span id="pitchLabT">PITCH</span><span id="refCluster">A <button class="hbtn" id="hzDn">−</button><b id="refTop">442</b><button class="hbtn" id="hzUp">＋</button></span><button class="hbtn" id="tempBtn"><span id="tempLbl">EQUAL</span></button><span id="transLbl"></span></div>
   <div class="stage2">
    <div class="dialRow"><div class="orbw"><div class="orb idle" id="orb" style="position:relative"><span id="orbN" style="position:relative;z-index:1"><svg width="40" height="92" viewBox="0 0 40 92" style="display:block;width:40px;height:92px;overflow:visible" aria-hidden="true"><path d="M20 51.5V6" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><path d="M21.0 4.6Q22.3 8.4 32.2 14.8Q36.5 17.7 38.0 19.9Q39.7 22.4 39.7 25.5Q39.7 32.1 31.2 38.6L29.8 37.0Q35.7 31.8 35.7 26.9Q35.7 24.0 33.7 21.7Q32.6 20.2 29.2 17.9Q24.0 14.3 21.7 11.7Z" fill="currentColor"/></svg></span></div><svg id="tickSvg" viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="90.5" fill="none" stroke="rgba(223,233,245,.10)" stroke-width="1"/><g id="tkDots"></g></svg><canvas id="flyCv" aria-hidden="true"></canvas><div class="msg" id="msg"></div><div id="dialCore"><div id="note">—</div><div id="dCents"><span id="centsV"></span><span id="dCentU">CENT</span></div><div id="dTag"><span>DON'T BE THE SAME.</span><span>COME TOGETHER.</span></div></div><div id="solfege"></div></div><div class="lv" id="lv" hidden></div>
   </div>
@@ -1518,7 +1542,12 @@ var _nzB=null;function nzBuf(){if(_nzB)return _nzB;const len=Math.floor(ac.sampl
    frozen-but-correct beats live-but-wrong (90ms mask: 63% wrong). */
 var CLKT=[];var CLKPRE=0.005,CLKPOST=0.160;
 function clkMasked(){if(typeof ac==='undefined'||!ac||!CLKT.length)return false;var now=ac.currentTime;for(var i=CLKT.length-1;i>=0;i--){if(now-CLKT[i]>CLKPOST)CLKT.splice(i,1)}for(var j=0;j<CLKT.length;j++){var t=CLKT[j];if(now>=t-CLKPRE&&now<=t+CLKPOST)return true}return false}
-function qClick(t,kind){CLKT.push(t);if(CLKT.length>24)CLKT.splice(0,CLKT.length-24);if(typeof micOn!=='undefined'&&micOn&&typeof micGate!=='undefined'&&micGate){try{var _gg=micGate.gain;_gg.setValueAtTime(1,t-0.006);_gg.linearRampToValueAtTime(0.05,t+0.004);_gg.setValueAtTime(0.05,t+0.065);_gg.linearRampToValueAtTime(1,t+0.10)}catch(e){}}const acc=kind=='acc',sub=kind=='sub';const f0=acc?3200:sub?2800:3000,pk=acc?.92:sub?.5:.8,dur=acc?.08:sub?.055:.07;const ns=ac.createBufferSource();ns.buffer=nzBuf();const nf=ac.createBiquadFilter();nf.type='bandpass';nf.frequency.value=acc?5400:sub?4700:5100;nf.Q.value=.8;const ng=ac.createGain();ng.gain.setValueAtTime(pk*.85,t);ng.gain.exponentialRampToValueAtTime(.001,t+.005);ns.connect(nf);nf.connect(ng);ng.connect(clkIn());ns.start(t);ns.stop(t+.012);const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(f0*1.4,t);o.frequency.exponentialRampToValueAtTime(f0,t+.006);const og=ac.createGain();og.gain.setValueAtTime(pk,t);og.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(og);og.connect(clkIn());o.start(t);o.stop(t+dur+.02);const p2=ac.createOscillator();p2.type='sine';p2.frequency.setValueAtTime(f0*2.76*1.3,t);p2.frequency.exponentialRampToValueAtTime(f0*2.76,t+.005);const g2=ac.createGain();g2.gain.setValueAtTime(pk*.126,t);g2.gain.exponentialRampToValueAtTime(.001,t+.03);p2.connect(g2);g2.connect(clkIn());p2.start(t);p2.stop(t+.05)}
+/* BUILD 2026-11-25 23:15: metronome sound choice — CLICK (original) / MECH (mechanical wooden metronome) / CAJON, shared with the KODO prototype. Persisted on the device. */
+var MSOUND='click';try{var _msv=localStorage.getItem('noxsonora_msound');if(_msv==='mech'||_msv==='cajon'||_msv==='click')MSOUND=_msv}catch(e){}
+window.__mSound=function(){return MSOUND};
+function qMech(t,kind){const acc=kind=='acc',sub=kind=='sub';const pk=acc?.95:sub?.45:.8;const ns=ac.createBufferSource();ns.buffer=nzBuf();const nf=ac.createBiquadFilter();nf.type='bandpass';nf.frequency.value=acc?2900:sub?2400:2600;nf.Q.value=1.1;const ng=ac.createGain();ng.gain.setValueAtTime(pk,t);ng.gain.exponentialRampToValueAtTime(.001,t+.045);ns.connect(nf);nf.connect(ng);ng.connect(clkIn());ns.start(t);ns.stop(t+.06);const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(acc?1250:1050,t);o.frequency.exponentialRampToValueAtTime(acc?780:660,t+.05);const og=ac.createGain();og.gain.setValueAtTime(pk*.55,t);og.gain.exponentialRampToValueAtTime(.001,t+.075);o.connect(og);og.connect(clkIn());o.start(t);o.stop(t+.09)}
+function qCajon(t,kind){const acc=kind=='acc',sub=kind=='sub';const pk=acc?1:sub?.4:.75;if(acc){const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(52,t+.10);const og=ac.createGain();og.gain.setValueAtTime(pk,t);og.gain.exponentialRampToValueAtTime(.001,t+.16);o.connect(og);og.connect(clkIn());o.start(t);o.stop(t+.18);const ns=ac.createBufferSource();ns.buffer=nzBuf();const nf=ac.createBiquadFilter();nf.type='lowpass';nf.frequency.value=900;const ng=ac.createGain();ng.gain.setValueAtTime(pk*.35,t);ng.gain.exponentialRampToValueAtTime(.001,t+.05);ns.connect(nf);nf.connect(ng);ng.connect(clkIn());ns.start(t);ns.stop(t+.06)}else{const ns=ac.createBufferSource();ns.buffer=nzBuf();const nf=ac.createBiquadFilter();nf.type='bandpass';nf.frequency.value=sub?1500:1750;nf.Q.value=.9;const ng=ac.createGain();ng.gain.setValueAtTime(pk,t);ng.gain.exponentialRampToValueAtTime(.001,t+.06);ns.connect(nf);nf.connect(ng);ng.connect(clkIn());ns.start(t);ns.stop(t+.08);const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(320,t);o.frequency.exponentialRampToValueAtTime(180,t+.04);const og=ac.createGain();og.gain.setValueAtTime(pk*.4,t);og.gain.exponentialRampToValueAtTime(.001,t+.06);o.connect(og);og.connect(clkIn());o.start(t);o.stop(t+.08)}}
+function qClick(t,kind){CLKT.push(t);if(CLKT.length>24)CLKT.splice(0,CLKT.length-24);if(typeof micOn!=='undefined'&&micOn&&typeof micGate!=='undefined'&&micGate){try{var _gg=micGate.gain;_gg.setValueAtTime(1,t-0.006);_gg.linearRampToValueAtTime(0.05,t+0.004);_gg.setValueAtTime(0.05,t+0.065);_gg.linearRampToValueAtTime(1,t+0.10)}catch(e){}}if(MSOUND=='mech'){qMech(t,kind);return}if(MSOUND=='cajon'){qCajon(t,kind);return}const acc=kind=='acc',sub=kind=='sub';const f0=acc?3200:sub?2800:3000,pk=acc?.92:sub?.5:.8,dur=acc?.08:sub?.055:.07;const ns=ac.createBufferSource();ns.buffer=nzBuf();const nf=ac.createBiquadFilter();nf.type='bandpass';nf.frequency.value=acc?5400:sub?4700:5100;nf.Q.value=.8;const ng=ac.createGain();ng.gain.setValueAtTime(pk*.85,t);ng.gain.exponentialRampToValueAtTime(.001,t+.005);ns.connect(nf);nf.connect(ng);ng.connect(clkIn());ns.start(t);ns.stop(t+.012);const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(f0*1.4,t);o.frequency.exponentialRampToValueAtTime(f0,t+.006);const og=ac.createGain();og.gain.setValueAtTime(pk,t);og.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(og);og.connect(clkIn());o.start(t);o.stop(t+dur+.02);const p2=ac.createOscillator();p2.type='sine';p2.frequency.setValueAtTime(f0*2.76*1.3,t);p2.frequency.exponentialRampToValueAtTime(f0*2.76,t+.005);const g2=ac.createGain();g2.gain.setValueAtTime(pk*.126,t);g2.gain.exponentialRampToValueAtTime(.001,t+.03);p2.connect(g2);g2.connect(clkIn());p2.start(t);p2.stop(t+.05)}
 function mClick(beat,t,bar,kind){qClick(t,kind);if(kind=='sub')return;const ms=Math.max(0,(t-ac.currentTime)*1000);setTimeout(()=>{if(!M.on)return;if(M.mode=='pattern'){$$('#pgrid .pcell').forEach((e,i)=>e.classList.toggle('cur',i==bar));if(bar!==lastBar){lastBar=bar;mDots(PAT[bar])}}$$('#mdots i').forEach((e,i)=>e.classList.toggle('on',i==beat));const p=$('#mpulse');if(p){p.classList.remove('hit');void p.offsetWidth;p.classList.add('hit')}},ms)}
 const SUBD={'1':[0],'2':[0,.5],'3':[0,1/3,2/3],'4':[0,.25,.5,.75],'dot':[0,.75]};
 function mSched(){if(M.stopAfter)return;while(M.nextT<ac.currentTime+0.12){const bn=mBeatsNow(),spb=60/M.bpm;SUBD[M.sub].forEach(o=>mClick(M.cur,M.nextT+o*spb,M.bar,o==0?(M.cur==0?'acc':'main'):'sub'));M.nextT+=spb;M.cur++;if(M.cur>=bn){M.cur=0;if(M.mode=='pattern'){if(M.bar==15&&!M.loop){M.stopAfter=M.nextT;break}M.bar=(M.bar+1)%16}}}}
@@ -1538,7 +1567,10 @@ pBuild();
 mDots();mShow();
 
 $$('#msub button').forEach(b=>b.onclick=()=>{M.sub=b.dataset.s;$$('#msub button').forEach(x=>x.classList.toggle('act',x==b))});
-const tempLbl=()=>{$('#tempLbl').textContent=TEMP=='eq'?'EQUAL':'JUST ('+notes[TONIC]+')'};
+/* BUILD 2026-11-25 23:20: the SOUND row is built here and placed as a slim row at the bottom of the metro card — the galaxy stage (.mdctl inside #gxStage) overlaps the dial, so a static row there is not usable. */
+(function(){var card=document.querySelector('#t3 .card.metro');if(!card||document.getElementById('msound'))return;var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px';row.innerHTML='<span class="msideLab" style="margin:0">SOUND</span><div class="seg" id="msound" style="flex:1;margin:0"><button class="btn sm act" data-ms="click">CLICK</button><button class="btn sm" data-ms="mech">MECH</button><button class="btn sm" data-ms="cajon">CAJON</button></div>';card.appendChild(row)})();
+$$('#msound button').forEach(b=>{b.classList.toggle('act',b.dataset.ms==MSOUND);b.onclick=()=>{MSOUND=b.dataset.ms;try{localStorage.setItem('noxsonora_msound',MSOUND)}catch(e){}$$('#msound button').forEach(x=>x.classList.toggle('act',x==b));try{ctx();if(ac.state=='suspended')ac.resume();qClick(ac.currentTime+0.03,'acc')}catch(e){}}});
+const tempLbl=()=>{$('#tempLbl').textContent=TEMP=='eq'?'EQUAL':'JUST ('+notes[TONIC]+')';$('#tempBtn').classList.toggle('isJust',TEMP=='just')};
 /* BUILD 2026-11-22 01:30 (U-1): temperament + tonic persist on the device, like the other settings */
 const tempSave=()=>{try{localStorage.setItem('noxsonora_temp',JSON.stringify({t:TEMP,tonic:TONIC}))}catch(e){}};
 {const ts=$('#tonicSeg');if(ts)notes.forEach((n,i)=>{const b=document.createElement('button');b.className='btn sm'+(i==0?' act':'');b.textContent=n;b.onclick=()=>{TONIC=i;$$('#tonicSeg button').forEach(x=>x.classList.toggle('act',x==b));tempLbl();tempSave()};ts.appendChild(b)})}
@@ -1998,7 +2030,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 21:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 21:45';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -14587,7 +14619,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2130 (the sync step sets
+   master: sonora-20261122-2145 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -15227,6 +15259,24 @@ body.quick #splPanel{display:none!important}
 body.quick #dbMeter{display:none!important}
 body.quick #openRhythm{display:none!important}
 body.quick .tab:not(#t0){display:none!important}
+</style>
+<style id="pitchRow">
+/* ===== PITCH header: ONE row (appended) =====
+   PITCH · QUICK · A - 442 + · EQUAL/JUST on a single line,
+   at 360px too, in both languages. The temperament pill
+   carries .isJust in JUST mode (its label is the widest)
+   and steps one size down there only. transLbl is the one
+   flexible item: it may clip in the extreme stack
+   (JUST + transposed + decimal A) so the row never wraps. */
+#pitchLab{display:flex;align-items:center;gap:4px;flex-wrap:nowrap}
+#pitchLabT{display:inline-flex;align-items:center;gap:4px;flex:none;white-space:nowrap;letter-spacing:.12em}
+#pitchLab #quickBtn{margin-left:0;height:24px;padding:0 6px;font-size:9.5px;letter-spacing:.04em}
+#refCluster{margin-left:auto;display:inline-flex;align-items:center;gap:2px;flex:none;white-space:nowrap;font-size:12.5px;letter-spacing:.02em;color:var(--txt)}
+#t0 .mainc #hzDn,#t0 .mainc #hzUp{width:27px;padding:6px 0 !important;font-size:12.5px !important;line-height:1.2;text-align:center}
+#t0 .mainc #tempBtn{flex:none;font-size:14px;line-height:1.2;padding:4px 11px}
+#t0 .mainc #tempBtn.isJust{font-size:12px;padding:4px 7px}
+#pitchLab #transLbl{flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:10.5px;letter-spacing:.02em;color:var(--txt)}
+#pitchLab #transLbl:empty{display:none}
 </style>
 <script>
 /* ===== TRACE JUST + QUICK MODE + MIC WAKE (appended) =====
