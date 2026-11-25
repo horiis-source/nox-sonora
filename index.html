@@ -1936,7 +1936,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 19:45';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 20:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -8882,6 +8882,138 @@ header .sub{line-height:1.3!important}
 })();
 </script>
 
+<style id="tNebula">
+/* ===== HIBIKI METER: harmonic nebula canvas — sits under the ring
+   fireflies (#flyCv), under the tick ring and the core type, so the
+   cloud glows inside the dial without ever covering a reading. ===== */
+#nebCv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+</style>
+<script>
+/* ===== HIBIKI METER (resonance meter): the harmonic nebula =====
+   The main dial gains a second, quieter flock of fireflies INSIDE
+   the ring. They read the live FFT of the same analyser the pitch
+   detection uses and lay the tone out as a nebula (design B):
+     - distance from the centre = harmonic order: the fundamental
+       glows at the heart, then the 2nd, 3rd ... 8th harmonic in
+       rings further out;
+     - each ring's firefly density of light (brightness) = that
+       harmonic's strength relative to the fundamental;
+     - harmonics above the 8th are not drawn as rings — their sum
+       feeds the whole cloud's brightness (overall richness);
+     - the core of the tone (harmonic energy vs the noise floor
+       between harmonics) sharpens each firefly's bright heart:
+       a clear tone shows crisp cores, a breathy tone melts into
+       diffuse halos — the cloud's edge itself reads clean or hazy;
+     - pitch stability calms the light: a steady tone breathes
+       slowly, an unsteady one shimmers.
+   Silence (or no pitch) fades the whole cloud out. The ring flock
+   on #flyCv is untouched: the in-tune ring behaves exactly as
+   before, and this pool is entirely separate. */
+(function(){
+ var flyCv=document.getElementById('flyCv');if(!flyCv)return;
+ var cv=document.createElement('canvas');cv.id='nebCv';cv.setAttribute('aria-hidden','true');
+ flyCv.parentNode.insertBefore(cv,flyCv);
+ var gx=cv.getContext('2d');if(!gx)return;
+ /* the dial's own sprite recipe (same gradients as the ring flock),
+    rendered once here so the light quality matches exactly */
+ var spr=document.createElement('canvas');spr.width=spr.height=128;
+ (function(){var g=spr.getContext('2d');var gr=g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(244,255,205,1)');gr.addColorStop(.16,'rgba(220,255,155,.9)');
+  gr.addColorStop(.38,'rgba(185,243,106,.42)');gr.addColorStop(.68,'rgba(150,220,80,.13)');
+  gr.addColorStop(1,'rgba(150,220,80,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)})();
+ var core=document.createElement('canvas');core.width=core.height=48;
+ (function(){var g=core.getContext('2d');var gr=g.createRadialGradient(24,24,0,24,24,24);
+  gr.addColorStop(0,'rgba(252,255,232,1)');gr.addColorStop(.35,'rgba(240,255,196,.95)');
+  gr.addColorStop(.7,'rgba(216,255,150,.4)');gr.addColorStop(1,'rgba(216,255,150,0)');
+  g.fillStyle=gr;g.fillRect(0,0,48,48)})();
+ var CX=112,CY=112;
+ /* ring radius of each harmonic layer (224-space). The ring flock
+    lives at r 88..101 and drifts within r 70; the nebula's outer
+    layer stops at ~80 so the two never fight over the rim. */
+ var RK=[6,16.6,27.2,37.8,48.4,59,69.6,80.2],PER=[10,12,14,14,14,14,14,14];
+ var flies=[];
+ for(var k=0;k<8;k++)for(var i=0;i<PER[k];i++){
+  flies.push({k:k,ang:Math.random()*6.283,
+   vel:(0.11-k*0.009)*(0.7+Math.random()*0.6)*(k%2?1:-1),
+   roff:(Math.random()*2-1)*4.6,rph:Math.random()*6.283,rper:5200+Math.random()*4600,
+   ph:Math.random()*6.283,per:2400+Math.random()*3200,
+   sz:.35+Math.pow(Math.random(),1.5)*.85,b:0})}
+ var fd=new Float32Array(2048),td=new Float32Array(4096);
+ var harm=new Float32Array(8),pres=0,rich=0,clar=.7,stab=.7,drawn=false;
+ var lastT=performance.now();
+ function sizeCv(){var w=cv.clientWidth||224;var d=Math.min(1.5,window.devicePixelRatio||1),px=Math.round(w*d);
+  if(cv.width!==px){cv.width=px;cv.height=px}}
+ sizeCv();addEventListener('resize',sizeCv);
+ function analyse(now,dt){
+  var live=false,f0=0;
+  try{live=(typeof an!=='undefined')&&!!an&&(typeof F0!=='undefined')&&F0>0&&(now-F0t<350);if(live)f0=F0}catch(e){}
+  var rms=0;
+  if(live){try{an.getFloatTimeDomainData(td);var s=0;for(var i=0;i<td.length;i+=2)s+=td[i]*td[i];rms=Math.sqrt(s/(td.length/2))}catch(e){live=false}}
+  var on=live&&rms>.004;
+  var tgt=new Float32Array(8),rT=0,cT=.7;
+  if(on){try{
+   an.getFloatFrequencyData(fd);var sr=ac.sampleRate,bw=sr/4096,amps=[],dbs=[];
+   for(var k=1;k<=16;k++){var c=Math.round(k*f0/bw),m=-120;
+    for(var j=c-3;j<=c+3;j++)if(j>0&&j<2048&&fd[j]>m)m=fd[j];
+    dbs.push(m);amps.push(Math.pow(10,m/20))}
+   var a1=amps[0]||1e-9;
+   if(dbs[0]<-78)on=false;
+   else{for(var h=0;h<8;h++)tgt[h]=Math.min(1,(amps[h]/a1)*1.35);
+    var hi=0;for(var q=8;q<16;q++)hi+=amps[q];rT=Math.min(1,(hi/a1)*1.6);
+    /* core: the fundamental's height above the floor measured
+       halfway between harmonics */
+    var fl=[];for(var n=0;n<7;n++){var cb=Math.round((n+1.5)*f0/bw),mm=-120;
+     for(var jj=cb-1;jj<=cb+1;jj++)if(jj>0&&jj<2048&&fd[jj]>mm)mm=fd[jj];fl.push(mm)}
+    fl.sort(function(a,b){return a-b});var med=fl[3];
+    cT=Math.max(0,Math.min(1,(dbs[0]-med-6)/34))}}
+  catch(e){on=false}}
+  var sT=.7;
+  try{if(typeof cents!=='undefined'&&cents.length>=8){var cc=cents.slice(-15),
+   mu=cc.reduce(function(a,b){return a+b},0)/cc.length,
+   sd=Math.sqrt(cc.reduce(function(a,b){return a+(b-mu)*(b-mu)},0)/cc.length);
+   sT=Math.max(0,Math.min(1,1-sd/22))}}catch(e){}
+  var kp=1-Math.exp(-dt/(on?130:620));pres+=(((on)?1:0)-pres)*kp;if(!on&&pres<.01)pres=0;
+  var ka=1-Math.exp(-dt/85),kr=1-Math.exp(-dt/330);
+  for(var h2=0;h2<8;h2++){var tv=on?tgt[h2]:0;harm[h2]+=(tv-harm[h2])*(tv>harm[h2]?ka:kr)}
+  rich+=(rT-rich)*(1-Math.exp(-dt/300));clar+=(cT-clar)*(1-Math.exp(-dt/260));
+  stab+=(sT-stab)*(1-Math.exp(-dt/400));
+  return pres>.012}
+ function frame(){requestAnimationFrame(frame);
+  var t0=document.getElementById('t0');
+  if(!t0||!t0.classList.contains('on')){lastT=performance.now();return}
+  var now=performance.now(),dt=Math.min(100,now-lastT);lastT=now;
+  var active=analyse(now,dt);
+  if(!active){if(drawn){gx.clearRect(0,0,cv.width,cv.height);drawn=false;
+   for(var z=0;z<flies.length;z++)flies[z].b=0}return}
+  if(cv.width<10)sizeCv();
+  var W=cv.width,S=W/224;drawn=true;
+  gx.clearRect(0,0,W,W);gx.globalCompositeOperation='lighter';
+  var spread=1.3-.6*clar,cloudA=.82+.3*rich,flick=(1-stab)*.38;
+  for(var i=0;i<flies.length;i++){var f=flies[i];
+   f.ang+=f.vel*dt/1000;
+   var rr=RK[f.k]+f.roff*spread+Math.sin(now/f.rper*6.283+f.rph)*1.6*spread;
+   var x=CX+rr*Math.cos(f.ang),y=CY+rr*Math.sin(f.ang);
+   var shim=flick*(.5+.5*Math.sin(now/97+f.ph*3.1));
+   var bt=pres*harm[f.k]*(0.55+0.45*Math.sin(now/f.per*6.283+f.ph))*(1-shim)*cloudA;
+   f.b+=(bt-f.b)*(1-Math.exp(-dt/210));if(f.b<0)f.b=0;else if(f.b>1)f.b=1;
+   if(f.b<.02)continue;
+   var gs=15*f.sz*(.45+.7*f.b);
+   gx.globalAlpha=Math.min(1,f.b*1.05);
+   gx.drawImage(spr,(x-gs/2)*S,(y-gs/2)*S,gs*S,gs*S);
+   var cs=4.6*f.sz*(.4+.7*f.b);
+   if(cs>1.2&&f.b*(.3+.7*clar)>.16){gx.globalAlpha=Math.min(1,f.b*1.1);
+    gx.drawImage(core,(x-cs/2)*S,(y-cs/2)*S,cs*S,cs*S)}}
+  gx.globalAlpha=1;gx.globalCompositeOperation='source-over'}
+ requestAnimationFrame(frame);
+ function info(){var lit=0;for(var i=0;i<flies.length;i++)if(flies[i].b>.22)lit++;
+  function r3(a){return Array.prototype.map.call(a,function(v){return Math.round(v*100)/100})}
+  return {on:pres>.03,presence:Math.round(pres*100)/100,harm:r3(harm),
+   rich:Math.round(rich*100)/100,clarity:Math.round(clar*100)/100,
+   stability:Math.round(stab*100)/100,lit:lit,total:flies.length}}
+ window.__nebInfo=info;window.__nebTest={state:info};
+})();
+</script>
+
 <script>
 /* ===== BUILD 2026-11-20 22:00: estimated SPL + calibration =====
    Shown level = dBFS + offset. Default offset +94 is a provisional
@@ -14242,7 +14374,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-1945 (the sync step sets
+   master: sonora-20261122-2000 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
