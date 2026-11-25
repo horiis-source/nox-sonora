@@ -1347,9 +1347,14 @@ BANDS.forEach((b,i)=>{const r=document.createElement('div');r.className='bd';r.i
 $$('[data-b]').forEach(b=>b.onclick=()=>{const t=b.dataset.b[0],i=+b.dataset.b.slice(1),st=t=='S'?solo:mute;st.has(i)?st.delete(i):st.add(i);b.classList.toggle(t.toLowerCase(),st.has(i));engine();const any=solo.size>0;bandG.forEach((g,j)=>g.gain.setTargetAtTime(any?(solo.has(j)&&!mute.has(j)?1:0):(mute.has(j)?0:1),ac.currentTime,.02))});
 const hbs=[];
 function extra(){tunerUI();if(!an)return;const sr=ac.sampleRate,bw=sr/4096;
- if(tab==0||tab==1){an.getFloatFrequencyData(fdA);const ok=performance.now()-F0t<400&&F0>0,a=[];for(let k=1;k<=8;k++){let m=-120;if(ok){const c=Math.round(k*F0/bw);for(let j=c-2;j<=c+2;j++)if(j>0&&j<2048)m=Math.max(m,fdA[j])}a.push(Math.pow(10,m/20))}
+ /* 2026-11-25 click blanking: the harmonic bars and band levels read the
+    live FFT, so a click would lift the quiet harmonics and the HIGH /
+    BRILLIANCE bands for a frame. Hold them while masked; the scope /
+    spectrogram / phase views below stay raw on purpose (diagnostics). */
+ const _gated=(()=>{try{return typeof clkMasked==='function'&&clkMasked()}catch(e){return false}})();
+ if(!_gated&&(tab==0||tab==1)){an.getFloatFrequencyData(fdA);const ok=performance.now()-F0t<400&&F0>0,a=[];for(let k=1;k<=8;k++){let m=-120;if(ok){const c=Math.round(k*F0/bw);for(let j=c-2;j<=c+2;j++)if(j>0&&j<2048)m=Math.max(m,fdA[j])}a.push(Math.pow(10,m/20))}
   const mx=Math.max(...a);hbs.forEach((el,i)=>el.style.height=ok?Math.max(2,a[i]/mx*100)+'%':'2%');($('#thd')||{}).textContent=ok?'THD: '+(Math.sqrt(a.slice(1).reduce((s,v)=>s+v*v,0))/a[0]*100).toFixed(1)+'%':'THD: --'}
- if(tab==1||tab==2||tab==5){pre.getFloatFrequencyData(fdP);BANDS.forEach((b,i)=>{let p=0,mx=-200,mi=0;const lo=Math.max(1,Math.round(b[1]/bw)),hi=Math.min(2047,Math.round(b[2]/bw));for(let j=lo;j<=hi;j++){p+=Math.pow(10,fdP[j]/10);if(fdP[j]>mx){mx=fdP[j];mi=j}}
+ if(!_gated&&(tab==1||tab==2||tab==5)){pre.getFloatFrequencyData(fdP);BANDS.forEach((b,i)=>{let p=0,mx=-200,mi=0;const lo=Math.max(1,Math.round(b[1]/bw)),hi=Math.min(2047,Math.round(b[2]/bw));for(let j=lo;j<=hi;j++){p+=Math.pow(10,fdP[j]/10);if(fdP[j]>mx){mx=fdP[j];mi=j}}
   const db=10*Math.log10(p+1e-12);$('#bdb'+i).textContent=db>-110?db.toFixed(0):'-∞';$('#bf'+i).textContent=mx>-110?Math.round(mi*bw)+' Hz':'--';$('#bi'+i).style.width=Math.max(0,Math.min(100,(db+100)*1.1))+'%'});}
  if(tab!=1)return;
  let corr=null;
@@ -1416,13 +1421,13 @@ function loop(){requestAnimationFrame(loop);
  let hasSig=false;
  if(an){an.getFloatTimeDomainData(buf);let pk=0,s=0;for(const v of buf){const a=Math.abs(v);if(a>pk)pk=a;s+=v*v}const rms=Math.sqrt(s/buf.length),db=v=>v>1e-5?(20*Math.log10(v)).toFixed(1):'—';const gated=clkMasked();
   if(!gated){const _df=document.getElementById('dbFill');if(_df)_df.style.width=Math.min(100,pk*100).toFixed(1)+'%';if(window.__splTxt)window.__splTxt(pk);const _dp=document.getElementById('dbPeak');if(_dp){const _pv=Math.min(100,pk*100),_now=performance.now();if(_pv>=(+_dp.dataset.v||0)){_dp.dataset.v=_pv;_dp.dataset.t=_now;_dp.style.left=_pv.toFixed(1)+'%'}else if(_now-(+_dp.dataset.t||0)>1200){const _nv=Math.max(_pv,(+_dp.dataset.v||0)-1.5);_dp.dataset.v=_nv;_dp.style.left=_nv.toFixed(1)+'%';if(_nv<=_pv)_dp.dataset.t=_now}}}hasSig=rms>.0035;
-  if(tab==1){($('#pk')||{}).textContent=db(pk);($('#rms')||{}).textContent=db(rms);($('#cf')||{}).textContent=rms>1e-5?(20*Math.log10(pk/rms)).toFixed(1):'0.0';
+  if(tab==1&&!gated){($('#pk')||{}).textContent=db(pk);($('#rms')||{}).textContent=db(rms);($('#cf')||{}).textContent=rms>1e-5?(20*Math.log10(pk/rms)).toFixed(1):'0.0';
    const fb=new Uint8Array(an.frequencyBinCount);an.getByteFrequencyData(fb);let n=0,d=0;fb.forEach((v,i)=>{n+=v*i;d+=v});($('#sc')||{}).textContent=d?Math.round(n/d*ac.sampleRate/an.fftSize):0}
   if(hasSig&&!gated){const f=detect(buf,ac.sampleRate);if(f){const m=f2m(f),r=Math.round(m);let c=(m-r)*100;if(TEMP=='just'){const pc=((r%12)+12)%12,iv=(pc-TONIC+12)%12;c-=(JUST[iv]-iv*100)}HEATADD(r,c,pk);
    const _rw=r+TRANS;$('#note').textContent=notes[((_rw%12)+12)%12]+(Math.floor(_rw/12)-1);$('#solfege').textContent=TRANS?('CONCERT '+notes[((r%12)+12)%12]+(Math.floor(r/12)-1)):'';const _hzv=$('#hz');if(_hzv)_hzv.textContent=f.toFixed(1);F0=f;F0t=performance.now();$('#needle').style.left=(50+Math.max(-1,Math.min(1,c/(FINE?15:50)))*50)+'%';
    if(r===SBr)SBn++;else{SBr=r;SBn=1}if(SBn>=18){SB={m:r,f:A4*Math.pow(2,(r-69)/12)};const _sn=$('#sbNote');if(_sn)_sn.textContent=notes[((r%12)+12)%12]+(Math.floor(r/12)-1)}const ok=Math.abs(c)<(FINE?3:5);$('#msg').textContent=ok?'EXCELLENT':(c<0?'FLAT ':'SHARP ')+Math.abs(c).toFixed(0)+'¢';
    cents.push(c);if(cents.length>30)cents.shift();const mu=cents.reduce((a,b)=>a+b)/cents.length,sd=Math.sqrt(cents.reduce((a,b)=>a+(b-mu)**2,0)/cents.length);($('#stab')||{}).textContent=Math.max(0,100-sd*3|0);
-   hist.push(m);histN.push(r);histL.push(pk);histR.push(trRichNow());{const _sp=trSplitNow();histBd.push(_sp[0]);histBr.push(_sp[1])};if(gNote!=null&&r!=gNote){histC.push(null);gSm=null;gMed=[]}else{if(gSm==null){gSm=c;gMed=[c];gSus=0}else if(Math.abs(c-gSm)>45){gSus++;if(gSus>=3){gSm=c;gMed=[c];gSus=0}}else{gSus=0;gMed.push(c);if(gMed.length>5)gMed.shift();const ms=[...gMed].sort((a,b)=>a-b);{const _med=ms[ms.length>>1],_df=_med-gSm,_ad=Math.abs(_df);gSm+=_df*(_ad<2?.16:_ad<5?.30:_ad<12?.48:.68)}}histC.push(Math.max(-60,Math.min(60,gSm)))}gNote=r;histM.push(r+((gSm==null?c:gSm)/100));if(REC.on){REC.data.push({m:r+((gSm==null?c:gSm)/100),c:gSm==null?c:Math.max(-60,Math.min(60,gSm)),l:pk,n:r});if(REC.data.length>=3600)recStop()}sinceHz=0}}else{if(gated){hist.push(hist.length?hist[hist.length-1]:null);histC.push(histC.length?histC[histC.length-1]:null);histN.push(histN.length?histN[histN.length-1]:null);histL.push(0);histR.push(histR.length?histR[histR.length-1]:0);histBd.push(histBd.length?histBd[histBd.length-1]:0);histBr.push(histBr.length?histBr[histBr.length-1]:0);histM.push(histM.length?histM[histM.length-1]:null);if(REC.on){REC.data.push(REC.data.length?REC.data[REC.data.length-1]:null);if(REC.data.length>=3600)recStop()}}else{hist.push(null);histC.push(null);gNote=null;gSm=null;gMed=[];histN.push(null);histL.push(0);histR.push(0);histBd.push(0);histBr.push(0);histM.push(null);if(REC.on){REC.data.push(null);if(REC.data.length>=3600)recStop()}}}
+   hist.push(m);histN.push(r);histL.push(pk);histR.push(trRichNow());{const _sp=trSplitNow();histBd.push(_sp[0]);histBr.push(_sp[1])};if(gNote!=null&&r!=gNote){histC.push(null);gSm=null;gMed=[]}else{if(gSm==null){gSm=c;gMed=[c];gSus=0}else if(Math.abs(c-gSm)>45){gSus++;if(gSus>=3){gSm=c;gMed=[c];gSus=0}}else{gSus=0;gMed.push(c);if(gMed.length>5)gMed.shift();const ms=[...gMed].sort((a,b)=>a-b);{const _med=ms[ms.length>>1],_df=_med-gSm,_ad=Math.abs(_df);gSm+=_df*(_ad<2?.16:_ad<5?.30:_ad<12?.48:.68)}}histC.push(Math.max(-60,Math.min(60,gSm)))}gNote=r;histM.push(r+((gSm==null?c:gSm)/100));if(REC.on){REC.data.push({m:r+((gSm==null?c:gSm)/100),c:gSm==null?c:Math.max(-60,Math.min(60,gSm)),l:pk,n:r});if(REC.data.length>=3600)recStop()}sinceHz=0}}else{if(gated){hist.push(hist.length?hist[hist.length-1]:null);histC.push(histC.length?histC[histC.length-1]:null);histN.push(histN.length?histN[histN.length-1]:null);histL.push(histL.length?histL[histL.length-1]:0);histR.push(histR.length?histR[histR.length-1]:0);histBd.push(histBd.length?histBd[histBd.length-1]:0);histBr.push(histBr.length?histBr[histBr.length-1]:0);histM.push(histM.length?histM[histM.length-1]:null);if(REC.on){REC.data.push(REC.data.length?REC.data[REC.data.length-1]:null);if(REC.data.length>=3600)recStop()}}else{hist.push(null);histC.push(null);gNote=null;gSm=null;gMed=[];histN.push(null);histL.push(0);histR.push(0);histBd.push(0);histBr.push(0);histM.push(null);if(REC.on){REC.data.push(null);if(REC.data.length>=3600)recStop()}}}
   if(hist.length>720){hist.shift();histC.shift();histN.shift();histL.shift();histM.shift();histR.shift();histBd.shift();histBr.shift()}}
  extra();
  if(0)draw($('#scope'),(x,w,h)=>{if(!an)return;if(mode==0)line(x,w,h,buf,'#dfe7ee');else{const fb=new Uint8Array(an.frequencyBinCount);an.getByteFrequencyData(fb);x.fillStyle=ACC();const bars=80;for(let i=0;i<bars;i++){const k=Math.round(Math.pow(fb.length,i/bars)),v=fb[Math.min(k,fb.length-1)]/255;x.fillRect(i*w/bars,h-v*h,w/bars-1,v*h)}}});
@@ -1432,9 +1437,12 @@ var BG={col:ACC(),lv:0},oy=0,lvS=0;
 const lvE=[];for(let i=0;i<12;i++){const e=document.createElement('i');if(i==10)e.className='hot';if(i==11)e.className='hot2';$('#lv').appendChild(e);lvE.push(e)}
 $$('#nav button').forEach((b,i)=>b.addEventListener('click',()=>document.body.dataset.tab=i));
 /* BUILD 23:15: the orb no longer plays a tone on tap — tapping the dial starts/stops measurement (patch at end of body) */
-function tunerUI(){const live=!!an&&performance.now()-F0t<350&&cents.length>0,c=live?cents[cents.length-1]:0,ok=Math.abs(c)<(FINE?3:5);let pk=0;
- if(an)for(let i=0;i<buf.length;i+=4){const a=Math.abs(buf[i]);if(a>pk)pk=a}
- lvS+=(pk-lvS)*.25;const col=!live||ok?ACC2():c>0?'#93a3b5':'#b39a67';BG.col=col;BG.lv=lvS;
+function tunerUI(){/* 2026-11-25 click blanking: while the click is masked, hold the
+   level (the click spike in buf would flash the orb glow and the level
+   bars) and keep showing the held pitch instead of dimming it. */
+ const _gated=(()=>{try{return typeof clkMasked==='function'&&clkMasked()}catch(e){return false}})();const live=!!an&&(performance.now()-F0t<350||_gated)&&cents.length>0,c=live?cents[cents.length-1]:0,ok=Math.abs(c)<(FINE?3:5);let pk=0;
+ if(an&&!_gated)for(let i=0;i<buf.length;i+=4){const a=Math.abs(buf[i]);if(a>pk)pk=a}
+ if(!_gated)lvS+=(pk-lvS)*.25;const col=!live||ok?ACC2():c>0?'#93a3b5':'#b39a67';BG.col=col;BG.lv=lvS;
  if(tab!=0)return;
  const o=$('#orb');oy+=((live?-Math.max(-50,Math.min(50,c))/50*26:0)-oy)*.2;const ic=$('#orbN');const _n=performance.now(),_dt=Math.min(100,_n-(growLast||_n));growLast=_n;if(live&&ok)growT=Math.min(3000,growT+_dt);else growT=Math.max(0,growT-_dt*1.6);ic.style.transform='translateY('+oy.toFixed(1)+'px) scale('+(1+growT/3000*.75).toFixed(2)+')';ic.style.color=live?(ok?'#ffffff':col):'#8fa3b8';const _nd=$('#ndl');if(_nd){ndA+=((live?Math.sign(c)*Math.sqrt(Math.min(50,Math.abs(c))/50)*52:0)-ndA)*.25;$('#ndlG').setAttribute('transform','rotate('+ndA.toFixed(2)+' 60 60)');const _nc='#93a3b5';_nd.setAttribute('fill',_nc);$('#ndlT').setAttribute('fill',_nc);$('#ndlIn').setAttribute('transform','translate(60 60) scale(1 '+(1+(live&&ok?growT/3000*.9:0)).toFixed(2)+') translate(-60 -60)');$('#ndlP').setAttribute('fill',_nc);const jl=$('#jiLines');if(jl)jl.style.display=TEMP=='just'?'':'none'}ic.style.textShadow=live?'0 0 '+(18+growT/3000*26).toFixed(0)+'px '+(ok?ACR(.95):col):'none';ic.style.filter=live?('drop-shadow(0 0 '+((18+growT/3000*26)*.55).toFixed(0)+'px '+(ok?ACR(.95):col)+')'):'none';o.style.setProperty('--oc',live?col:'#6c9a4a');o.classList.toggle('ok',live&&ok);o.classList.toggle('idle',!live);stbC+=((live?c:0)-stbC)*Math.min(1,_dt/1000*9);if(live&&Math.abs(stbC)>1.2)stbPh=(stbPh+stbC*3.6*_dt/1000)%360;stbDraw();const _og=$('#orbGlow');if(_og)_og.style.opacity=live?(ok?'.8':'.3'):'0'
  $('#note').style.opacity=live?1:.35;const ch=$('#cchip');ch.style.setProperty('--oc',live?col:'#6c9a4a');ch.textContent=live?(c>0?'+':'')+c.toFixed(1)+' cent':'± 0.0 cent';
@@ -1494,8 +1502,21 @@ var _nzB=null;function nzBuf(){if(_nzB)return _nzB;const len=Math.floor(ac.sampl
 /* BUILD 2026-11-21 00:00: metronome click masking (see patch notes).
    CLKT holds scheduled click times (AudioContext clock). The mask
    window covers output/input latency plus the 4096-sample analyser
-   buffer (~85ms) draining the click the mic picked up. */
-var CLKT=[];var CLKPRE=0.005,CLKPOST=0.185;
+   buffer (~85ms) draining the click the mic picked up.
+   2026-11-25 click blanking (measured, probe_clickblank.py):
+   the click itself is below 1% of peak by ~55ms, but the analyser
+   window keeps its residue until ~150ms, so a mask shorter than
+   ~150ms lets wrong pitches through (90ms: 13% wrong frames, same
+   as no mask). 160ms is the measured knee: 0 wrong frames at
+   quarter notes and at 240bpm, nebula jump 0.01, while the freeze
+   after each click shrinks vs 185ms (resume ~217ms vs ~234ms,
+   fresh-pitch fraction 0.87 vs 0.84). No echo canceller is used
+   anywhere; the micGate dip and the getUserMedia constraints are
+   untouched — this is analysis-side blanking only. Dense clicks
+   (125ms subdivisions) stay longer than any safe mask, so the
+   analysis holds the last good pitch there instead of guessing:
+   frozen-but-correct beats live-but-wrong (90ms mask: 63% wrong). */
+var CLKT=[];var CLKPRE=0.005,CLKPOST=0.160;
 function clkMasked(){if(typeof ac==='undefined'||!ac||!CLKT.length)return false;var now=ac.currentTime;for(var i=CLKT.length-1;i>=0;i--){if(now-CLKT[i]>CLKPOST)CLKT.splice(i,1)}for(var j=0;j<CLKT.length;j++){var t=CLKT[j];if(now>=t-CLKPRE&&now<=t+CLKPOST)return true}return false}
 function qClick(t,kind){CLKT.push(t);if(CLKT.length>24)CLKT.splice(0,CLKT.length-24);if(typeof micOn!=='undefined'&&micOn&&typeof micGate!=='undefined'&&micGate){try{var _gg=micGate.gain;_gg.setValueAtTime(1,t-0.006);_gg.linearRampToValueAtTime(0.05,t+0.004);_gg.setValueAtTime(0.05,t+0.065);_gg.linearRampToValueAtTime(1,t+0.10)}catch(e){}}const acc=kind=='acc',sub=kind=='sub';const f0=acc?3200:sub?2800:3000,pk=acc?.92:sub?.5:.8,dur=acc?.08:sub?.055:.07;const ns=ac.createBufferSource();ns.buffer=nzBuf();const nf=ac.createBiquadFilter();nf.type='bandpass';nf.frequency.value=acc?5400:sub?4700:5100;nf.Q.value=.8;const ng=ac.createGain();ng.gain.setValueAtTime(pk*.85,t);ng.gain.exponentialRampToValueAtTime(.001,t+.005);ns.connect(nf);nf.connect(ng);ng.connect(clkIn());ns.start(t);ns.stop(t+.012);const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(f0*1.4,t);o.frequency.exponentialRampToValueAtTime(f0,t+.006);const og=ac.createGain();og.gain.setValueAtTime(pk,t);og.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(og);og.connect(clkIn());o.start(t);o.stop(t+dur+.02);const p2=ac.createOscillator();p2.type='sine';p2.frequency.setValueAtTime(f0*2.76*1.3,t);p2.frequency.exponentialRampToValueAtTime(f0*2.76,t+.005);const g2=ac.createGain();g2.gain.setValueAtTime(pk*.126,t);g2.gain.exponentialRampToValueAtTime(.001,t+.03);p2.connect(g2);g2.connect(clkIn());p2.start(t);p2.stop(t+.05)}
 function mClick(beat,t,bar,kind){qClick(t,kind);if(kind=='sub')return;const ms=Math.max(0,(t-ac.currentTime)*1000);setTimeout(()=>{if(!M.on)return;if(M.mode=='pattern'){$$('#pgrid .pcell').forEach((e,i)=>e.classList.toggle('cur',i==bar));if(bar!==lastBar){lastBar=bar;mDots(PAT[bar])}}$$('#mdots i').forEach((e,i)=>e.classList.toggle('on',i==beat));const p=$('#mpulse');if(p){p.classList.remove('hit');void p.offsetWidth;p.classList.add('hit')}},ms)}
@@ -1977,7 +1998,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 21:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 21:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -2256,6 +2277,9 @@ var IV=[[1,1,'UNISON'],[6,5,'MIN 3RD'],[5,4,'MAJ 3RD'],[4,3,'PERF 4TH'],[3,2,'PE
 setInterval(function(){
  var t=T[L()];cbCard.querySelector('#cbLab').textContent=t.cb;cbCard.querySelector('#cbHint').textContent=t.cbHint;
  if(typeof tab==='undefined'||tab!==4||typeof ac==='undefined'||!ac||typeof bus==='undefined')return;
+ /* 2026-11-25 click blanking: hold the last chord reading while masked —
+    the click's broadband peaks would otherwise read as false fundamentals. */
+ try{if(typeof clkMasked==='function'&&clkMasked())return}catch(e){}
  try{
  if(!cbAn){cbAn=ac.createAnalyser();cbAn.fftSize=8192;cbAn.smoothingTimeConstant=.35;bus.connect(cbAn);cbBuf=new Float32Array(cbAn.frequencyBinCount)}
  cbAn.getFloatFrequencyData(cbBuf);
@@ -3966,9 +3990,13 @@ function dyTargetDb(t){var a=symDb(dyS0.value),b=symDb(dyS1.value),sh=dyCurve.va
 function dyNb(){return dyCurve.value==='swell'?8:+dyBeats.value}
 function dyLevel(){
  if(typeof an==='undefined'||!an||typeof micOn==='undefined'||!micOn)return null;
+ /* 2026-11-25 click blanking: hold the last level while masked, so a
+    click never counts as loudness (the dynamics test sounds its own
+    clicks through qClick). */
+ try{if(typeof clkMasked==='function'&&clkMasked())return (typeof dyLevel._last==='number')?dyLevel._last:null}catch(e){}
  try{an.getFloatTimeDomainData(buf)}catch(e){return null}
  var s=0,n=0,L=buf.length;for(var i=L-2048;i<L;i+=2){var v=buf[i];s+=v*v;n++}
- return 20*Math.log10(Math.sqrt(s/n)+1e-9);
+ var _lv=20*Math.log10(Math.sqrt(s/n)+1e-9);dyLevel._last=_lv;return _lv;
 }
 function dyCents(){if(typeof histC==='undefined'||!histC.length)return null;var c=histC[histC.length-1];return (typeof c==='number'&&isFinite(c))?c:null}
 function dyClick(t,acc,g){
@@ -8988,6 +9016,20 @@ header .sub{line-height:1.3!important}
   if(cv.width!==px){cv.width=px;cv.height=px}}
  sizeCv();addEventListener('resize',sizeCv);
  function analyse(now,dt){
+  /* 2026-11-25 click blanking: while the click is masked, hold the
+     nebula exactly as it was. Without this the cloud reads the
+     click-contaminated FFT (its smoothing lets one wrong frame
+     through) and, worse, its presence decays whenever F0 goes stale
+     — at subdivision rates the gate is nearly continuous, so the
+     cloud faded out entirely for seconds. The hold keeps it lit on
+     the held pitch. Exception: if the gated window is essentially
+     silent the player has stopped, so presence still decays and the
+     cloud fades instead of freezing lit (threshold 0.05, measured
+     against the dipped click residue, see probe notes). */
+  try{if(typeof clkMasked==='function'&&clkMasked()){
+    var _gr=0;try{an.getFloatTimeDomainData(td);var _gs=0;for(var _gi=0;_gi<td.length;_gi+=2)_gs+=td[_gi]*td[_gi];_gr=Math.sqrt(_gs/(td.length/2))}catch(e){}
+    if(_gr<0.05){pres+=((0)-pres)*(1-Math.exp(-dt/620));if(pres<.01)pres=0}
+    return pres>.012}}catch(e){}
   var live=false,f0=0;
   try{live=(typeof an!=='undefined')&&!!an&&(typeof F0!=='undefined')&&F0>0&&(now-F0t<350);if(live)f0=F0}catch(e){}
   var rms=0;
@@ -9838,8 +9880,11 @@ function drawMerged(){
   MGH.push({t:now0,c:live0?Math.max(-25,Math.min(25,stbC)):null,lv:histL.length?histL[histL.length-1]:0,r:(typeof trRichNow==='function')?trRichNow():0,b:SMB,l:SML,rb:_sp2[0],rl:_sp2[1]});
   while(MGH.length&&now0-MGH[0].t>12500)MGH.shift();
   /* waveform peaks for the conventional waveform display (01:15):
-     the true peak of the analyser buffer, sampled with the panel */
-  var wpk=0;try{if(typeof an!=='undefined'&&an&&typeof buf!=='undefined'&&buf){an.getFloatTimeDomainData(buf);for(var wi=0;wi<buf.length;wi++){var wa=Math.abs(buf[wi]);if(wa>wpk)wpk=wa}}}catch(e){}
+     the true peak of the analyser buffer, sampled with the panel.
+     2026-11-25 click blanking: while masked, hold the last peak —
+     the click spike would otherwise draw a spike in the trace's
+     waveform strip on every beat. */
+  var wpk=0;try{if(typeof clkMasked==='function'&&clkMasked()){wpk=WVH.length?WVH[WVH.length-1].pk:0}else if(typeof an!=='undefined'&&an&&typeof buf!=='undefined'&&buf){an.getFloatTimeDomainData(buf);for(var wi=0;wi<buf.length;wi++){var wa=Math.abs(buf[wi]);if(wa>wpk)wpk=wa}}}catch(e){}
   WVH.push({t:now0,pk:wpk});
   while(WVH.length&&now0-WVH[0].t>12500)WVH.shift()}
  if(streakT){var dt=(now0-streakT)/1000;if(live0&&Math.abs(stbC)<=3)streak+=dt;else streak=0}
@@ -14542,7 +14587,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2100 (the sync step sets
+   master: sonora-20261122-2115 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
