@@ -1810,9 +1810,13 @@ nxRender();nxSave();
 
 /* ===== JP / EN language switch ===== */
 let LANG='en';try{LANG=localStorage.getItem('noxsonora_lang')||'en'}catch(e){}
+/* BUILD 2026-11-22 19:15 (user instruction): the tagline
+   "Don't be the same. Come together." is English notation in BOTH
+   languages — it has no TR entry, so the JP pass leaves it as-is
+   (header, intro and LINK footer alike). */
 const TR={
 'OUTPUT VOLUME':'音量','Loudness of the metronome, reference tones and all other sounds':'メトロノーム・基準音など、すべての音の大きさ',
-"Don't be the same. Come together.":'同じになるな、一緒になろう','THE ART OF LISTENING':'聴くことの芸術','TRACE':'トレース','ANALYZE':'分析','PRACTICE':'練習','OBJECTIVE':'客観','RHYTHM':'リズム','SETTINGS':'設定','INTUNE':'音程',
+'THE ART OF LISTENING':'聴くことの芸術','TRACE':'トレース','ANALYZE':'分析','PRACTICE':'練習','OBJECTIVE':'客観','RHYTHM':'リズム','SETTINGS':'設定','INTUNE':'音程',
 'PITCH':'ピッチ','EQUAL':'平均律','JUST':'純正律','START THE MIC':'START THE MIC','READY':'準備OK','LISTENING':'聞き取り中','WAITING':'待機中','PLAYING':'再生中','PLAY THE SOURCE':'音源を再生してください',
 'EXCELLENT':'ぴったり','SHARP':'高い','FLAT':'低い','IN TUNE':'合っている','WAITING FOR SOUND…':'音を待っています…',
 '● START MIC':'● マイク開始','■ STOP MIC':'■ マイク停止','PLAY TONE':'基準音','INPUT':'入力','AVG — dB':'平均 — dB','MIC OFF':'マイク OFF','MIC ON':'マイク ON',
@@ -1932,7 +1936,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 19:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 19:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -14233,7 +14237,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-1900 (the sync step sets
+   master: sonora-20261122-1915 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
