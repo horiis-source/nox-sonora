@@ -1,4 +1,4 @@
-const C='sonora-20261122-2145';const ASSETS=['./','./index.html','./fingering.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png','./noxun_egg2.webp','./noxun_baby2.webp','./noxun_growing2.webp','./noxun_adult2.webp','./bg_santorini.jpg','./bg_iceland.jpg','./bg_desert.jpg','./bg_seaside.jpg'];
+const C='sonora-20261122-2200';const ASSETS=['./','./index.html','./fingering.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png','./noxun_egg2.webp','./noxun_baby2.webp','./noxun_growing2.webp','./noxun_adult2.webp','./bg_santorini.jpg','./bg_iceland.jpg','./bg_desert.jpg','./bg_seaside.jpg'];
 /* mp/ (bundled MediaPipe: bundle + wasm + face model, ~23MB) is deliberately NOT
    precached: the generic fetch handler below runtime-caches it on first
    EMBOUCHURE use, so install and normal startup stay light. The same
