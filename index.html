@@ -1977,7 +1977,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 20:45';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 21:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -9070,6 +9070,99 @@ header .sub{line-height:1.3!important}
 })();
 </script>
 
+<style id="tShape">
+/* ===== TONE SHAPE WORD: one quiet word low in the dial, naming
+   the shape of the harmonic balance while a tone sounds. It sits
+   under the core type and above the solfege line, in the muted
+   voice of the dial's small print — never a score, never a lack:
+   an odd-harmonic tone is a clarinet's nature, not a defect. ===== */
+#t0 #shapeWord{position:absolute;left:0;right:0;bottom:13.5%;text-align:center;font-size:10px;font-weight:500;letter-spacing:.30em;text-indent:.30em;color:var(--mut);opacity:0;transition:opacity .55s ease;pointer-events:none;z-index:4;white-space:nowrap}
+</style>
+<script>
+/* ===== TONE SHAPE: read the nebula's layers as a shape =====
+   The nebula already measures the harmonic layers (1..8 plus the
+   above-8th sum). This block only READS that analysis and names
+   the balance's shape with a single quiet word under the dial:
+     full   — every layer present, low and high together
+     odd    — odd harmonics carry the tone (a clarinet's nature)
+     dark   — the low layers are there, the top stays thin
+     bright — the low layers are thin, the tone leans high
+     pure   — the harmonics overall are faint; the fundamental
+              itself is the tone
+   The word is a shape name, never a verdict: nothing here says
+   a layer is "missing". It appears only while a tone sounds
+   (the nebula's own on/off), holds through brief wobbles by
+   asking the same winner three readings in a row before it
+   changes, and fades with the cloud when the tone ends.
+   The nebula's drawing and the trace's light are untouched. */
+(function(){
+ var flyCv=document.getElementById('flyCv');if(!flyCv||!flyCv.parentNode)return;
+ var el=document.createElement('div');el.id='shapeWord';el.setAttribute('aria-hidden','true');
+ flyCv.parentNode.appendChild(el);
+ var WORDS={
+  full:{jp:'\u6e80\u3061\u3066\u3044\u308b',en:'FULL'},
+  odd:{jp:'\u5947\u6570\u4e2d\u5fc3',en:'ODD'},
+  dark:{jp:'\u4e0a\u304c\u8584\u3044',en:'DARK'},
+  bright:{jp:'\u4e0b\u304c\u7d30\u3044',en:'BRIGHT'},
+  pure:{jp:'\u5143\u306e\u97f3\u4e2d\u5fc3',en:'PURE'}};
+ function isEn(){try{return localStorage.getItem('noxsonora_lang')==='en'}catch(e){return false}}
+ function clamp01(v){return v<0?0:v>1?1:v}
+ function r2(v){return Math.round(v*100)/100}
+ var shownKey=null,candKey=null,candN=0,lastLang=null,cur={key:null,score:0,scores:null,feats:null};
+ function classify(ni){
+  var h=ni.harm||[];
+  function g(i){return h[i]||0}
+  var body=(g(1)+g(2)+g(3))/3,upper=(g(4)+g(5)+g(6)+g(7))/4,
+      odd=(g(2)+g(4)+g(6))/3,even=(g(1)+g(3)+g(5)+g(7))/4,
+      total=(g(1)+g(2)+g(3)+g(4)+g(5)+g(6)+g(7))/7,
+      top=upper+0.35*(ni.rich||0)*(1-upper);
+  var oddDom=clamp01((odd-even)/0.25);
+  var scores={
+   pure:clamp01(1-total/0.12),
+   odd:odd*oddDom,
+   full:clamp01(Math.min(body,top)/0.30)*(1-oddDom),
+   dark:clamp01(body/0.35)*clamp01((body-top)/(body+0.10)),
+   bright:clamp01(top/0.35)*clamp01((top-body)/(top+0.10))};
+  var best=null,bv=0;
+  for(var k in scores)if(scores[k]>bv){bv=scores[k];best=k}
+  var sc={};for(var k2 in scores)sc[k2]=r2(scores[k2]);
+  return {key:(bv>=0.30?best:null),score:r2(bv),scores:sc,
+   feats:{body:r2(body),upper:r2(upper),odd:r2(odd),even:r2(even),
+    total:r2(total),top:r2(top),rich:r2(ni.rich||0)}}}
+ function render(){
+  lastLang=isEn();
+  if(shownKey&&WORDS[shownKey])el.textContent=lastLang?WORDS[shownKey].en:WORDS[shownKey].jp}
+ var lastOp=-1;
+ function setOp(v){
+  if(Math.abs(v-lastOp)<0.02&&v!==0&&lastOp!==0)return;
+  lastOp=v;el.style.opacity=v.toFixed(2)}
+ setInterval(function(){
+  var t0=document.getElementById('t0');
+  if(!t0||!t0.classList.contains('on'))return;
+  var ni=null;try{ni=window.__nebInfo?window.__nebInfo():null}catch(e){}
+  var key=null;
+  if(ni&&ni.on){cur=classify(ni);key=cur.key}
+  else cur={key:null,score:0,scores:null,feats:null};
+  /* judgement only while the tone truly sounds: in the attack
+     and the dying tail (presence low) the layers are still
+     travelling, so the word holds what it had instead of
+     chasing the decay */
+  var stable=!ni||!ni.on||ni.presence>=0.35;
+  if(stable){
+   if(key===shownKey){candKey=null;candN=0}
+   else if(key===candKey){candN++;
+    if(candN>=3){shownKey=key;candKey=null;candN=0;render()}}
+   else{candKey=key;candN=1}}
+  if(shownKey&&lastLang!==isEn())render();
+  /* the word breathes with the cloud: its opacity follows the
+     nebula's presence, so it never outlives the glow it names */
+  setOp(shownKey?clamp01(((ni?ni.presence:0)-0.04)*1.5):0);
+ },180);
+ window.__shapeInfo=function(){return {key:cur.key,score:cur.score,
+  shown:shownKey,text:el.textContent,scores:cur.scores,feats:cur.feats}};
+})();
+</script>
+
 <script>
 /* ===== BUILD 2026-11-20 22:00: estimated SPL + calibration =====
    Shown level = dBFS + offset. Default offset +94 is a provisional
@@ -14449,7 +14542,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2045 (the sync step sets
+   master: sonora-20261122-2100 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
