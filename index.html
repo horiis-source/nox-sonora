@@ -1295,7 +1295,7 @@ window.__bgSync=function(){var b=BASE();window.__bgMode=b.mode;window.__bgFlat=b
 
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let A4=442,ac,an,buf,stream,tab=0,mode=0,hist=[],cents=[],micOn=false,notes=['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
+let A4=442,ac,an,buf,stream,tab=0,mode=0,hist=[],histR=[],cents=[],micOn=false,notes=['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
 let TEMP='eq',TONIC=0,FINE=false,TRANS=0;let growT=0,growLast=0,micTap=false,SENSG=5;let gNote=null,gSm=null,gMed=[],gSus=0,WNOTE=null,WCENT=null,gCenter=null,pgT=0,wstT=0,wState=null,gReview=false,recCenter=null;const histN=[],histL=[],histM=[];const REC={on:false,data:[],play:false,idx:0};let pbO=null,pbG=null,pbT=null;const SOLF=notes;const JUST=[0,111.73,203.91,315.64,386.31,498.04,590.22,701.96,813.69,884.36,1017.6,1088.27];
 let histC=[];const HSUM=Array(12).fill(0),HCNT=Array(12).fill(0),COACH=[];let coachLast=0;
 function HEATADD(r,c,pk){const pc=((r%12)+12)%12;HSUM[pc]+=c;HCNT[pc]++;const n=performance.now();if(n-coachLast>100){coachLast=n;COACH.push({t:n,c:c,pk:pk});if(COACH.length>3600)COACH.shift()}}
@@ -1422,8 +1422,8 @@ function loop(){requestAnimationFrame(loop);
    const _rw=r+TRANS;$('#note').textContent=notes[((_rw%12)+12)%12]+(Math.floor(_rw/12)-1);$('#solfege').textContent=TRANS?('CONCERT '+notes[((r%12)+12)%12]+(Math.floor(r/12)-1)):'';const _hzv=$('#hz');if(_hzv)_hzv.textContent=f.toFixed(1);F0=f;F0t=performance.now();$('#needle').style.left=(50+Math.max(-1,Math.min(1,c/(FINE?15:50)))*50)+'%';
    if(r===SBr)SBn++;else{SBr=r;SBn=1}if(SBn>=18){SB={m:r,f:A4*Math.pow(2,(r-69)/12)};const _sn=$('#sbNote');if(_sn)_sn.textContent=notes[((r%12)+12)%12]+(Math.floor(r/12)-1)}const ok=Math.abs(c)<(FINE?3:5);$('#msg').textContent=ok?'EXCELLENT':(c<0?'FLAT ':'SHARP ')+Math.abs(c).toFixed(0)+'¢';
    cents.push(c);if(cents.length>30)cents.shift();const mu=cents.reduce((a,b)=>a+b)/cents.length,sd=Math.sqrt(cents.reduce((a,b)=>a+(b-mu)**2,0)/cents.length);($('#stab')||{}).textContent=Math.max(0,100-sd*3|0);
-   hist.push(m);histN.push(r);histL.push(pk);if(gNote!=null&&r!=gNote){histC.push(null);gSm=null;gMed=[]}else{if(gSm==null){gSm=c;gMed=[c];gSus=0}else if(Math.abs(c-gSm)>45){gSus++;if(gSus>=3){gSm=c;gMed=[c];gSus=0}}else{gSus=0;gMed.push(c);if(gMed.length>5)gMed.shift();const ms=[...gMed].sort((a,b)=>a-b);{const _med=ms[ms.length>>1],_df=_med-gSm,_ad=Math.abs(_df);gSm+=_df*(_ad<2?.16:_ad<5?.30:_ad<12?.48:.68)}}histC.push(Math.max(-60,Math.min(60,gSm)))}gNote=r;histM.push(r+((gSm==null?c:gSm)/100));if(REC.on){REC.data.push({m:r+((gSm==null?c:gSm)/100),c:gSm==null?c:Math.max(-60,Math.min(60,gSm)),l:pk,n:r});if(REC.data.length>=3600)recStop()}sinceHz=0}}else{if(gated){hist.push(hist.length?hist[hist.length-1]:null);histC.push(histC.length?histC[histC.length-1]:null);histN.push(histN.length?histN[histN.length-1]:null);histL.push(0);histM.push(histM.length?histM[histM.length-1]:null);if(REC.on){REC.data.push(REC.data.length?REC.data[REC.data.length-1]:null);if(REC.data.length>=3600)recStop()}}else{hist.push(null);histC.push(null);gNote=null;gSm=null;gMed=[];histN.push(null);histL.push(0);histM.push(null);if(REC.on){REC.data.push(null);if(REC.data.length>=3600)recStop()}}}
-  if(hist.length>720){hist.shift();histC.shift();histN.shift();histL.shift();histM.shift()}}
+   hist.push(m);histN.push(r);histL.push(pk);histR.push(trRichNow());if(gNote!=null&&r!=gNote){histC.push(null);gSm=null;gMed=[]}else{if(gSm==null){gSm=c;gMed=[c];gSus=0}else if(Math.abs(c-gSm)>45){gSus++;if(gSus>=3){gSm=c;gMed=[c];gSus=0}}else{gSus=0;gMed.push(c);if(gMed.length>5)gMed.shift();const ms=[...gMed].sort((a,b)=>a-b);{const _med=ms[ms.length>>1],_df=_med-gSm,_ad=Math.abs(_df);gSm+=_df*(_ad<2?.16:_ad<5?.30:_ad<12?.48:.68)}}histC.push(Math.max(-60,Math.min(60,gSm)))}gNote=r;histM.push(r+((gSm==null?c:gSm)/100));if(REC.on){REC.data.push({m:r+((gSm==null?c:gSm)/100),c:gSm==null?c:Math.max(-60,Math.min(60,gSm)),l:pk,n:r});if(REC.data.length>=3600)recStop()}sinceHz=0}}else{if(gated){hist.push(hist.length?hist[hist.length-1]:null);histC.push(histC.length?histC[histC.length-1]:null);histN.push(histN.length?histN[histN.length-1]:null);histL.push(0);histR.push(histR.length?histR[histR.length-1]:0);histM.push(histM.length?histM[histM.length-1]:null);if(REC.on){REC.data.push(REC.data.length?REC.data[REC.data.length-1]:null);if(REC.data.length>=3600)recStop()}}else{hist.push(null);histC.push(null);gNote=null;gSm=null;gMed=[];histN.push(null);histL.push(0);histR.push(0);histM.push(null);if(REC.on){REC.data.push(null);if(REC.data.length>=3600)recStop()}}}
+  if(hist.length>720){hist.shift();histC.shift();histN.shift();histL.shift();histM.shift();histR.shift()}}
  extra();
  if(0)draw($('#scope'),(x,w,h)=>{if(!an)return;if(mode==0)line(x,w,h,buf,'#dfe7ee');else{const fb=new Uint8Array(an.frequencyBinCount);an.getByteFrequencyData(fb);x.fillStyle=ACC();const bars=80;for(let i=0;i<bars;i++){const k=Math.round(Math.pow(fb.length,i/bars)),v=fb[Math.min(k,fb.length-1)]/255;x.fillRect(i*w/bars,h-v*h,w/bars-1,v*h)}}});
 
@@ -1623,7 +1623,17 @@ let cgRange=0,cgAuto=25;const cgraph=$('#cgraph');
 const cgBtnEl=$('#cgRange');if(cgBtnEl)cgBtnEl.addEventListener('click',()=>{cgRange=cgRange==0?15:cgRange==15?25:cgRange==25?50:0;cgBtnEl.textContent=cgRange==0?(LANG=='jp'?'自動':'AUTO'):'±'+cgRange+'¢'});
 function strokeSmoothSeg(x,pts,colFor){if(!pts||pts.length<2)return;const L=pts.length;for(let s=0;s<L-1;s++){const a=pts[s],b=pts[s+1],pv=pts[Math.max(0,s-1)];const sx=s==0?a.x:(pv.x+a.x)/2,sy=s==0?a.y:(pv.y+a.y)/2,ex=s==L-2?b.x:(a.x+b.x)/2,ey=s==L-2?b.y:(a.y+b.y)/2;x.strokeStyle=colFor(b.v);x.beginPath();x.moveTo(sx,sy);x.quadraticCurveTo(a.x,a.y,ex,ey);x.stroke()}}
 function lvlBars(x,w,ld,span,midY,maxHalf,alpha){const pitch=4,bw=2.4,nc=Math.max(1,Math.floor(w/pitch));x.fillStyle='rgba(255,255,255,'+alpha+')';for(let i=0;i<nc;i++){const xa=i*pitch;let k0=Math.floor(xa/w*span),k1=Math.max(k0+1,Math.ceil((xa+pitch)/w*span));let v=0;for(let k=k0;k<k1&&k<ld.length;k++){const lv=ld[k]||0;if(lv>v)v=lv}if(v<=0.012)continue;const bh=Math.max(1.1,Math.sqrt(v)*maxHalf);x.fillRect(xa+(pitch-bw)/2,midY-bh,bw,bh*2)}}
-function drawCents(){const RA=gReview?recArrays():null;let data=RA?RA.c:histC,ldata=RA?RA.l:histL,ndata=RA?RA.n:histN;if(!gReview&&data.length>240){const st=data.length-240;data=data.slice(st);ldata=ldata.slice(st);ndata=ndata.slice(st)}
+/* ===== TRACE RICHNESS: the trace line's halo breathes with the
+   tone's richness. histR is recorded beside histC on every frame
+   (see the push site in loop()); each sample blends the nebula's
+   above-8th richness with the mean strength of harmonics 2..8, so
+   a tone whose harmonics bloom wears a wider, brighter halo and a
+   thinning tone leaves a narrowing trail. The core pass of the
+   line is never touched: pitch stays exactly as readable. ===== */
+function trRichNow(){try{const ni=window.__nebInfo?window.__nebInfo():null;if(!ni||!ni.on)return 0;let s=0;for(let i=1;i<8;i++)s+=(ni.harm[i]||0);return Math.max(0,Math.min(1,.5*(ni.rich||0)+.5*(s/7)))}catch(e){return 0}}
+window.__trRich={now:trRichNow,hist:function(){return histR.slice(-12)}};
+function drawCents(){const RA=gReview?recArrays():null;let data=RA?RA.c:histC,ldata=RA?RA.l:histL,ndata=RA?RA.n:histN,rdata=(RA||gFrozen)?null:histR;if(rdata&&rdata.length>data.length)rdata=rdata.slice(rdata.length-data.length);if(!gReview&&data.length>240){const st=data.length-240;data=data.slice(st);ldata=ldata.slice(st);ndata=ndata.slice(st);if(rdata)rdata=rdata.slice(st)}
+ const trRv=function(k){if(!rdata||!rdata.length)return 0;const W=[1,2,3,4,3,2,1];let s=0,w=0;for(let o=-3;o<=3;o++){const idx=Math.max(0,Math.min(rdata.length-1,k+o)),wt=W[o+3];s+=(rdata[idx]||0)*wt;w+=wt}return Math.pow(s/w,1.3)};
  draw(cgraph,(x,w,h)=>{let R=cgRange;if(R==0){let vs=[];for(const v of data)if(v!=null)vs.push(Math.abs(v));vs.sort((a,b)=>a-b);const p=vs.length?vs[Math.floor(vs.length*.95)]:15;const tg=Math.max(15,Math.min(50,Math.ceil((p+4)/5)*5));cgAuto+=(tg-cgAuto)*.06;R=cgAuto}const mid=h/2,y=v=>mid-Math.max(-R,Math.min(R,v))/R*(mid-6),step=R>30?10:5;
   (function(){const pitch=3,nc=Math.max(1,Math.floor(w/pitch)),sp2=gReview?Math.max(1,data.length):240;const tops=[],bots=[];
    for(let i2=0;i2<nc;i2++){const xa=i2*pitch;let k0=Math.floor(xa/w*sp2),k1=Math.max(k0+1,Math.ceil((xa+pitch)/w*sp2));let v=0;for(let k=k0;k<k1&&k<ldata.length;k++){const lv=ldata[k]||0;if(lv>v)v=lv}
@@ -1638,7 +1648,7 @@ function drawCents(){const RA=gReview?recArrays():null;let data=RA?RA.c:histC,ld
   const n=data.length,span=gReview?Math.max(1,n):240;
   x.lineCap='round';x.lineJoin='round';
   i=0;while(i<n){if(data[i]==null){i++;continue}let j=i;while(j<n&&data[j]!=null)j++;
-    {const pts=[];for(let k=i;k<j;k++)pts.push({x:k/span*w,y:y(data[k]),v:data[k],k:k});const inT2=function(v){return Math.abs(v)<=(FINE?3:5)},glow2=function(v){return inT2(v)?ACC():v>0?'#93a3b5':'#b39a67'},core2=function(v){return inT2(v)?'#eaffc0':v>0?'#ccd6e4':'#e2cd96'};const passes=[[8,.05],[3.4,.16],[1.7,1]];for(let p=0;p<passes.length;p++){x.lineWidth=passes[p][0];for(let s=0;s<pts.length-1;s++){const a=pts[s],b=pts[s+1],pv=pts[Math.max(0,s-1)];const sx=s==0?a.x:(pv.x+a.x)/2,sy=s==0?a.y:(pv.y+a.y)/2,ex=s==pts.length-2?b.x:(a.x+b.x)/2,ey=s==pts.length-2?b.y:(a.y+b.y)/2;const fade=.18+.82*(b.k/Math.max(1,n-1));x.globalAlpha=passes[p][1]*(p==2?(.35+.65*fade):fade);x.strokeStyle=p==2?core2(b.v):glow2(b.v);x.beginPath();x.moveTo(sx,sy);x.quadraticCurveTo(a.x,a.y,ex,ey);x.stroke()}}x.globalAlpha=1;for(let k=i;k<j;k++){const b=data[k];if(Math.abs(b)>R){x.fillStyle=glow2(b);x.beginPath();x.arc(k/span*w,b>0?3:h-3,2,0,7);x.fill()}}const lp=pts[pts.length-1];if(lp&&j==n){const pu=1+.18*Math.sin(performance.now()/280),hc=inT2(lp.v)?'185,243,106':lp.v>0?'147,163,181':'179,154,103';const rg=x.createRadialGradient(lp.x,lp.y,0,lp.x,lp.y,11*pu);rg.addColorStop(0,'rgba('+hc+',.5)');rg.addColorStop(1,'rgba('+hc+',0)');x.fillStyle=rg;x.beginPath();x.arc(lp.x,lp.y,11*pu,0,7);x.fill();x.fillStyle=core2(lp.v);x.beginPath();x.arc(lp.x,lp.y,2.4,0,7);x.fill()}}
+    {const pts=[];for(let k=i;k<j;k++)pts.push({x:k/span*w,y:y(data[k]),v:data[k],k:k});const inT2=function(v){return Math.abs(v)<=(FINE?3:5)},glow2=function(v){return inT2(v)?ACC():v>0?'#93a3b5':'#b39a67'},core2=function(v){return inT2(v)?'#eaffc0':v>0?'#ccd6e4':'#e2cd96'};const passes=[[8,.05],[3.4,.16],[1.7,1]];for(let p=0;p<passes.length;p++){x.lineWidth=passes[p][0];for(let s=0;s<pts.length-1;s++){const a=pts[s],b=pts[s+1],pv=pts[Math.max(0,s-1)];const sx=s==0?a.x:(pv.x+a.x)/2,sy=s==0?a.y:(pv.y+a.y)/2,ex=s==pts.length-2?b.x:(a.x+b.x)/2,ey=s==pts.length-2?b.y:(a.y+b.y)/2;const fade=.18+.82*(b.k/Math.max(1,n-1));let _al=passes[p][1]*(p==2?(.35+.65*fade):fade);if(p<2){const _rv=trRv(b.k);x.lineWidth=passes[p][0]*(1+_rv*(p==0?2.2:.7));_al*=1+_rv*(p==0?1.6:.9)}x.globalAlpha=_al;x.strokeStyle=p==2?core2(b.v):glow2(b.v);x.beginPath();x.moveTo(sx,sy);x.quadraticCurveTo(a.x,a.y,ex,ey);x.stroke()}}x.globalAlpha=1;for(let k=i;k<j;k++){const b=data[k];if(Math.abs(b)>R){x.fillStyle=glow2(b);x.beginPath();x.arc(k/span*w,b>0?3:h-3,2,0,7);x.fill()}}const lp=pts[pts.length-1];if(lp&&j==n){const pu=1+.18*Math.sin(performance.now()/280),hc=inT2(lp.v)?'185,243,106':lp.v>0?'147,163,181':'179,154,103';const rg=x.createRadialGradient(lp.x,lp.y,0,lp.x,lp.y,11*pu);rg.addColorStop(0,'rgba('+hc+',.5)');rg.addColorStop(1,'rgba('+hc+',0)');x.fillStyle=rg;x.beginPath();x.arc(lp.x,lp.y,11*pu,0,7);x.fill();x.fillStyle=core2(lp.v);x.beginPath();x.arc(lp.x,lp.y,2.4,0,7);x.fill()}}
    i=j}
   x.shadowBlur=0;
   let ln=null,lc=null;for(let k=n-1;k>=0;k--){if(ndata[k]!=null){ln=ndata[k];break}}
@@ -1936,7 +1946,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 20:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 20:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -9699,7 +9709,7 @@ function drawMerged(){
  if(gReview||gFrozen){oldDrawCents();return}
  var now0=performance.now(),live0=now0-F0t<400&&cents.length>0;
  if(now0-MLAST>=50){MLAST=now0;
-  MGH.push({t:now0,c:live0?Math.max(-25,Math.min(25,stbC)):null,lv:histL.length?histL[histL.length-1]:0});
+  MGH.push({t:now0,c:live0?Math.max(-25,Math.min(25,stbC)):null,lv:histL.length?histL[histL.length-1]:0,r:(typeof trRichNow==='function')?trRichNow():0});
   while(MGH.length&&now0-MGH[0].t>12500)MGH.shift();
   /* waveform peaks for the conventional waveform display (01:15):
      the true peak of the analyser buffer, sampled with the panel */
@@ -9801,6 +9811,9 @@ function drawMerged(){
   /* the panel's softened trio as solid line colours */
   var LC=['rgba(226,204,158,','rgba(214,248,164,','rgba(198,214,230,'];
   function lcls(v){return v>3?2:(v<-3?0:1)}
+  /* richness along the panel line: the same kernel + gamma the
+     plain trace uses, over the MGH samples' r values */
+  function rAt(gi){var W=[1,2,3,4,3,2,1],s=0,w=0;for(var o=-3;o<=3;o++){var idx=Math.max(0,Math.min(NL-1,gi+o)),wt=W[o+3];s+=(MGH[idx].r||0)*wt;w+=wt}return Math.pow(s/w,1.3)}
   function lpath(wid,alpha,gi0,gi1){var started=false,pc=null,hp=false,pvx=0,pvy=0;
    for(var gi=gi0;gi<gi1;gi++){var gp=MGH[gi];
     if(!gp||gp.c==null){started=false;pc=null;hp=false;continue}
@@ -9812,8 +9825,16 @@ function drawMerged(){
     else x.lineTo(qx,qy);
     pvx=qx;pvy=qy;hp=true}
    if(started)x.stroke()}
-  /* pass 1: the soft glow that carries the light */
-  lpath(5.5,'.13',0,NL);
+  /* pass 1: the soft glow that carries the light. Its width and
+     brightness breathe with the tone's richness (MGH r, sampled
+     from the nebula's harmonic analysis): a tone whose harmonics
+     bloom wears a wider, brighter halo, and a tone that thins
+     leaves a narrowing trail. Drawn in slices like the core
+     pass, so the change travels along the line and never jumps;
+     the core pass itself is untouched and pitch stays exact. */
+  for(var g5=0;g5<16;g5++){var j0=Math.floor(NL*g5/16),j1=Math.floor(NL*(g5+1)/16);
+   if(j1<=j0)continue;var rv=rAt(Math.floor((j0+j1)/2));
+   lpath(5.5*(1+1.5*rv),(.13*(1+1.3*rv)).toFixed(3),j0,j1)}
   /* pass 2: the bright core line, in five age slices — the past
      melts dimmer, the present reads first */
   for(var s5=0;s5<5;s5++){var i0=Math.floor(NL*s5/5),i1=Math.floor(NL*(s5+1)/5);
@@ -14389,7 +14410,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2015 (the sync step sets
+   master: sonora-20261122-2030 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
