@@ -1936,7 +1936,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 19:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 19:45';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -14242,7 +14242,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-1930 (the sync step sets
+   master: sonora-20261122-1945 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -14759,6 +14759,110 @@ if(navEl)navEl.addEventListener('click',function(){setTimeout(function(){buildZo
 var lb=document.getElementById('langBtn');
 if(lb)lb.addEventListener('click',function(){setTimeout(lockText,520)});
 window.__brLock={locked:true,overlay:function(){return document.getElementById('brLock')},zone:function(){return document.getElementById('brZone')}};
+})();
+</script>
+
+<style id="b1945css">
+/* ===== BUILD 2026-11-22 19:45: BREATH LAB — only a little
+   shows; the rest sits in a drawer. The intro card stays out
+   as the teaser under the 19:30 veil; everything else moves
+   into #brDrawer, whose body never opens while the lock is
+   on. The drawer head is all that shows of it. ===== */
+#brDrawer{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.02);overflow:hidden}
+#brDrawerHead{display:flex;align-items:center;gap:9px;padding:12px 14px}
+#brDrawerChev{flex:none;font-size:11px;color:var(--ac);text-shadow:0 0 8px rgba(185,243,106,.55)}
+#brDrawerLab{flex:1;min-width:0;font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--tx)}
+#brDrawerKey{flex:none;font-size:13px;line-height:1;filter:drop-shadow(0 0 8px rgba(185,243,106,.45)) drop-shadow(0 1px 4px rgba(0,0,0,.6))}
+#brDrawerBody{display:none!important}
+#brDrawerBody>.card{margin:10px}
+#brDrawerBody>.hint{margin:10px}
+</style>
+<script id="b1945">
+/* ===== BUILD 2026-11-22 19:45 (JS): BREATH LAB shows only a
+   little; the rest is folded into a drawer. The 19:30 pack
+   put every BREATH card on show under the frosted veil. The
+   user's word now: the teaser is the intro card alone, and
+   everything after it (mode, camera, monitor, results, pacer,
+   session data, the footnote) is folded into #brDrawer inside
+   the same zone, under the same veil, behind the same lock.
+   The drawer has no opening mechanism at all while the lock
+   is on: its body is display:none, its head carries no
+   handler, the zone's capture-phase guard and the
+   pointer-events seal from 19:30 cover it like everything
+   else, and this pack re-folds it on an interval, on nav
+   clicks and on zone mutations, so no late DOM move can leave
+   a card standing outside the drawer. The __brTest/__bcTest
+   seals are untouched and keep their own re-seal loop; the
+   BREATH code and saved data stay in the file, and unlock day
+   removes this pack and the 19:30 pack together. */
+(function(){
+'use strict';
+function lg(){try{return localStorage.getItem('noxsonora_lang')==='jp'?'jp':'en'}catch(e){return 'en'}}
+function JP(){return lg()==='jp'}
+var headLab=null,queued=false;
+function drawerText(){
+ if(headLab)headLab.textContent=JP()?'BREATH LAB のつづき':'MORE OF BREATH LAB';
+}
+function arrange(){
+ var zone=document.getElementById('brZone');
+ if(!zone)return;
+ /* teaser = the intro card (it holds the BREATH LAB title) */
+ var teaser=null;
+ Array.prototype.forEach.call(zone.children,function(ch){
+  if(!teaser&&ch.id!=='brLock'&&ch.id!=='brDrawer'&&ch.querySelector&&ch.querySelector('[data-bk="title"]'))teaser=ch;
+ });
+ if(!teaser)Array.prototype.forEach.call(zone.children,function(ch){
+  if(!teaser&&ch.id!=='brLock'&&ch.id!=='brDrawer')teaser=ch;
+ });
+ var drawer=document.getElementById('brDrawer');
+ if(!drawer){
+  drawer=document.createElement('div');drawer.id='brDrawer';
+  drawer.innerHTML='<div id="brDrawerHead"><span id="brDrawerChev">▸</span><span id="brDrawerLab"></span><span id="brDrawerKey">🔐</span></div><div id="brDrawerBody"></div>';
+ }
+ /* the drawer sits right after the teaser, before the veil */
+ if(teaser&&teaser.parentNode===zone){
+  if(teaser.nextSibling!==drawer)zone.insertBefore(drawer,teaser.nextSibling);
+ }else if(drawer.parentNode!==zone){
+  var lk=document.getElementById('brLock');
+  if(lk&&lk.parentNode===zone)zone.insertBefore(drawer,lk);else zone.appendChild(drawer);
+ }
+ var body=drawer.querySelector('#brDrawerBody');
+ if(!body)return;
+ /* if anything ever restyles the drawer body open, fold it back */
+ if(!body.__foldGuard&&window.MutationObserver){
+  body.__foldGuard=true;
+  new MutationObserver(function(){
+   if(body.style.display!=='none')body.style.setProperty('display','none','important');
+  }).observe(body,{attributes:true,attributeFilter:['style','hidden','class']});
+ }
+ /* everything that is not the teaser, the drawer or the veil
+    is folded into the drawer */
+ Array.prototype.slice.call(zone.children).forEach(function(ch){
+  if(ch===teaser||ch===drawer||ch.id==='brLock')return;
+  body.appendChild(ch);
+ });
+ body.style.setProperty('display','none','important');
+ try{drawer.inert=true;drawer.setAttribute('aria-hidden','true')}catch(e){}
+ headLab=drawer.querySelector('#brDrawerLab');drawerText();
+}
+arrange();
+var iv=setInterval(arrange,400);
+setTimeout(function(){clearInterval(iv)},20000);
+var zone0=document.getElementById('brZone');
+if(zone0&&window.MutationObserver)new MutationObserver(function(){
+ if(queued)return;queued=true;
+ setTimeout(function(){queued=false;arrange()},60);
+}).observe(zone0,{childList:true});
+var navEl=document.getElementById('nav');
+if(navEl)navEl.addEventListener('click',function(){setTimeout(arrange,320)});
+var lb=document.getElementById('langBtn');
+if(lb)lb.addEventListener('click',function(){setTimeout(drawerText,520)});
+/* the drawer can be asked about, never opened, while locked —
+   the same sealed shape as the breath test hooks */
+window.__brDrawer={locked:true,
+ isOpen:function(){var b=document.getElementById('brDrawerBody');return !!(b&&b.offsetParent!==null)},
+ open:function(){return{locked:true}},
+ el:function(){return document.getElementById('brDrawer')}};
 })();
 </script>
 </body></html>
