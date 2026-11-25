@@ -1316,7 +1316,7 @@ function mark(){$$('#srcs button').forEach(b=>b.classList.toggle('act',b.dataset
 function stopSynth(){if(arpT){clearInterval(arpT);arpT=null}if(synO){try{synO.stop()}catch(e){}synO=null}}
 async function startMic(){if(micOn){stopMic();return}
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){micFail('The mic is not available in this view. Open the page URL in Safari / Chrome');return}
- try{engine();if(ac.state=='suspended')await ac.resume();stopSynth();aud.pause();stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});mics=ac.createMediaStreamSource(stream);micG=ac.createGain();micG.gain.value=SENSG;micC=ac.createDynamicsCompressor();micC.threshold.value=-8;micC.ratio.value=12;micC.attack.value=.002;micC.release.value=.18;mics.connect(micG);micG.connect(micC);micGate=ac.createGain();micGate.gain.value=1;micC.connect(micGate);micGate.connect(bus);micOn=true;mon.gain.value=0;src='mic';mark();$('#micErr').hidden=true;
+ try{engine();if(ac.state=='suspended')await Promise.race([ac.resume(),new Promise(function(r){setTimeout(r,900)})]);stopSynth();aud.pause();stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});mics=ac.createMediaStreamSource(stream);micG=ac.createGain();micG.gain.value=SENSG;micC=ac.createDynamicsCompressor();micC.threshold.value=-8;micC.ratio.value=12;micC.attack.value=.002;micC.release.value=.18;mics.connect(micG);micG.connect(micC);micGate=ac.createGain();micGate.gain.value=1;micC.connect(micGate);micGate.connect(bus);micOn=true;mon.gain.value=0;src='mic';mark();$('#micErr').hidden=true;
   var _mbS=$('#mic');if(_mbS)_mbS.textContent=LANG=='jp'?'■ 停止':'■ STOP';setPill('MIC ON',1);$('#msg').textContent='';($('#wst')||{}).textContent='PLAYING'}
  catch(e){micFail(e&&e.name=='NotAllowedError'?'Mic permission was denied. Allow the mic for this site in your browser settings':(e&&(e.name=='NotFoundError'||e.name=='OverconstrainedError')?'NO MIC FOUND':'Mic unavailable — check permission settings'))}}
 function stopMic(){stream&&stream.getTracks().forEach(t=>t.stop());mics&&mics.disconnect();if(micGate){try{micGate.disconnect()}catch(e){}micGate=null}mics=null;micOn=false;if(mon)mon.gain.value=1;var _mbT=$('#mic');if(_mbT)_mbT.textContent=LANG=='jp'?'▶ スタート':'▶ START';setPill('MIC OFF',0);$('#msg').textContent='';($('#wst')||{}).textContent='WAITING'}
@@ -1998,7 +1998,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 21:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 21:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -9585,7 +9585,7 @@ var lb=document.getElementById('langBtn');if(lb)lb.addEventListener('click',func
 render();
 window.__topKb={sel:function(){return[...sel]},freq:freq,voiceCount:function(){return Object.keys(voices).length},live:function(){return liveM},keyEls:function(){return keyEls},tr:function(){return trName},trOff:function(){return trOff},setTr:function(n){if(Object.prototype.hasOwnProperty.call(TROFF,n))setTr(n);else{var a=String(n).replace(/b/g,String.fromCharCode(0x266d));if(Object.prototype.hasOwnProperty.call(TROFF,a))setTr(a)}},hold:function(){return hold},setHold:function(v){v=!!v;if(v!==hold&&holdBtn)holdBtn.click()},clear:clearAll,
 lo:function(){return LO},drone:function(){return droneM},shiftOctave:shiftOctave,
-tonic:function(){return (typeof TONIC!=='undefined')?TONIC:null}};
+tonic:function(){return (typeof TONIC!=='undefined')?TONIC:null},retune:function(){try{if(typeof ac==='undefined'||!ac)return;Object.keys(voices).forEach(function(k){var v=voices[k];if(!v)return;var f=freq(+k);v.o1.frequency.setTargetAtTime(f,ac.currentTime,.03);v.o2.frequency.setTargetAtTime(f*2,ac.currentTime,.03)})}catch(e){}}};
 })();
 </script>
 <style id="t2345">
@@ -14587,7 +14587,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2115 (the sync step sets
+   master: sonora-20261122-2130 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -15208,6 +15208,122 @@ window.__brDrawer={locked:true,
  isOpen:function(){var b=document.getElementById('brDrawerBody');return !!(b&&b.offsetParent!==null)},
  open:function(){return{locked:true}},
  el:function(){return document.getElementById('brDrawer')}};
+})();
+</script>
+<style id="cssQuick">
+/* ===== QUICK MODE (appended): only the essentials stay =====
+   The dial, the trace (BPM circle and Tap chip included) and
+   the keyboard remain; everything else on the top screen,
+   the tab bar and the voice pill leave. The header row stays
+   whole — reference A and the quick pill itself live there. */
+#quickBtn{flex:none;height:21px;padding:0 9px;font-size:10px;font-weight:700;letter-spacing:.08em;border-radius:99px;margin-left:7px;vertical-align:1px}
+#tkbTr #tcfRes{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+body.quick #nav{display:none!important}
+body.quick #vcFab{display:none!important}
+body.quick #t0 #ikTopCard,body.quick #t0 #ffCard{display:none!important}
+body.quick #t0 #intuneBox{display:none!important}
+body.quick #t0 #filebox,body.quick #t0 .opts,body.quick #t0 .foot2{display:none!important}
+body.quick #splPanel{display:none!important}
+body.quick #dbMeter{display:none!important}
+body.quick #openRhythm{display:none!important}
+body.quick .tab:not(#t0){display:none!important}
+</style>
+<script>
+/* ===== TRACE JUST + QUICK MODE + MIC WAKE (appended) =====
+   (1) JUST on the TRACE keyboard row: the same equal<->just
+       toggle DIRECTOR carries, driving the global temperament
+       the top keyboard already sounds by (its freq() reads
+       TEMP, exactly like the header's own temperament button,
+       which this button simply presses). Sounding voices
+       retune in place, as DIRECTOR's do.
+   (2) QUICK mode: one small pill in the PITCH header. In,
+       the top screen keeps only the dial, the trace with its
+       BPM circle and Tap chip, and the keyboard; the pill
+       itself stays in the same place and reads BACK. Nothing
+       is persisted — a cold start is always the normal app.
+       Entering quick is a real tap, so the mic is started
+       right there in the handler: quick opens measuring.
+   (3) Mic wake: at a cold start the 17:15 auto-start already
+       tries on its own; startMic no longer waits forever on
+       a browser-blocked resume() (a 900ms race at its head),
+       so the mic graph is wired promptly wherever capture is
+       allowed, and a quiet chaser keeps offering resume() —
+       on taps, on return to the page, on a timer — until the
+       context runs. Where the browser still refuses capture
+       itself, the 17:15 first-plain-tap fallback stands. */
+(function(){
+"use strict";
+function el(id){return document.getElementById(id)}
+function jp(){try{return localStorage.getItem('noxsonora_lang')==='jp'}catch(e){return false}}
+
+/* ---------- (1) JUST toggle on the TRACE keyboard row ---------- */
+function syncJust(){
+ var b=el('tkbJust');if(!b)return;
+ var isJ=false;try{isJ=(typeof TEMP!=='undefined'&&TEMP==='just')}catch(e){}
+ b.classList.toggle('act',isJ);
+ b.textContent=jp()?'純正律':'JUST';
+}
+var trRow=el('tkbTr'),holdB=el('tkbHold');
+if(trRow&&holdB&&!el('tkbJust')){
+ var jb=document.createElement('button');jb.type='button';jb.id='tkbJust';jb.className='btn sm';
+ jb.style.cssText='flex:none;height:24px;padding:0 8px;font-size:10.5px;border-radius:8px';
+ trRow.insertBefore(jb,holdB);
+ jb.addEventListener('click',function(){
+  var tb=el('tempBtn');if(tb)tb.click();
+  try{if(window.__topKb&&__topKb.retune)setTimeout(function(){__topKb.retune()},30)}catch(e){}
+  syncJust();
+ });
+}
+
+/* ---------- (2) QUICK mode ---------- */
+function syncQuick(){
+ var b=el('quickBtn');if(!b)return;
+ var on=document.body.classList.contains('quick');
+ b.textContent=on?(jp()?'もどる':'BACK'):(jp()?'クイック':'QUICK');
+ b.classList.toggle('act',on);
+}
+function ensureMic(){
+ try{
+  if(typeof micOn!=='undefined'&&micOn){
+   if(typeof ac!=='undefined'&&ac&&ac.state!=='running'){var p=ac.resume();if(p&&p.catch)p.catch(function(){})}
+   return}
+  if(window.__micAuto&&__micAuto.pending)return;
+  if(typeof startMic==='function'){try{micTap=true}catch(e){}startMic()}
+ }catch(e){}
+}
+var mainc=document.querySelector('#t0 .mainc');
+var headLab=mainc?mainc.querySelector('.lab'):null;
+var firstSpan=headLab?headLab.querySelector('span'):null;
+if(firstSpan&&!el('quickBtn')){
+ var qb=document.createElement('button');qb.type='button';qb.id='quickBtn';qb.className='btn sm';
+ firstSpan.appendChild(qb);
+ qb.addEventListener('click',function(){
+  var on=document.body.classList.toggle('quick');
+  syncQuick();
+  if(on){
+   try{var m=document.querySelector('main');if(m)m.scrollTop=0;window.scrollTo(0,0)}catch(e){}
+   ensureMic();
+  }
+ });
+}
+
+/* ---------- (3) resume chaser ---------- */
+function chase(){
+ try{
+  if(typeof micOn!=='undefined'&&micOn&&typeof ac!=='undefined'&&ac&&ac.state!=='running'){
+   var p=ac.resume();if(p&&p.catch)p.catch(function(){})}
+ }catch(e){}
+}
+setInterval(chase,900);
+document.addEventListener('pointerdown',chase,true);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)chase()});
+
+/* ---------- sync ---------- */
+function syncAll(){syncJust();syncQuick()}
+setInterval(syncAll,700);syncAll();
+var lb=el('langBtn');if(lb)lb.addEventListener('click',function(){setTimeout(syncAll,520)});
+window.__quick={on:function(){return document.body.classList.contains('quick')},
+ toggle:function(){var b=el('quickBtn');if(b)b.click();return document.body.classList.contains('quick')}};
 })();
 </script>
 </body></html>
