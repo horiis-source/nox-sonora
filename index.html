@@ -1936,7 +1936,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 20:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 20:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -8918,9 +8918,10 @@ header .sub{line-height:1.3!important}
     rendered once here so the light quality matches exactly */
  var spr=document.createElement('canvas');spr.width=spr.height=128;
  (function(){var g=spr.getContext('2d');var gr=g.createRadialGradient(64,64,0,64,64,64);
-  gr.addColorStop(0,'rgba(244,255,205,1)');gr.addColorStop(.16,'rgba(220,255,155,.9)');
-  gr.addColorStop(.38,'rgba(185,243,106,.42)');gr.addColorStop(.68,'rgba(150,220,80,.13)');
-  gr.addColorStop(1,'rgba(150,220,80,0)');g.fillStyle=gr;g.fillRect(0,0,128,128)})();
+  gr.addColorStop(0,'rgba(247,255,216,1)');gr.addColorStop(.14,'rgba(226,255,163,.92)');
+  gr.addColorStop(.34,'rgba(192,246,112,.45)');gr.addColorStop(.58,'rgba(165,230,92,.18)');
+  gr.addColorStop(.82,'rgba(150,220,80,.05)');gr.addColorStop(1,'rgba(150,220,80,0)');
+  g.fillStyle=gr;g.fillRect(0,0,128,128)})();
  var core=document.createElement('canvas');core.width=core.height=48;
  (function(){var g=core.getContext('2d');var gr=g.createRadialGradient(24,24,0,24,24,24);
   gr.addColorStop(0,'rgba(252,255,232,1)');gr.addColorStop(.35,'rgba(240,255,196,.95)');
@@ -8935,8 +8936,9 @@ header .sub{line-height:1.3!important}
  for(var k=0;k<8;k++)for(var i=0;i<PER[k];i++){
   flies.push({k:k,ang:Math.random()*6.283,
    vel:(0.11-k*0.009)*(0.7+Math.random()*0.6)*(k%2?1:-1),
-   roff:(Math.random()*2-1)*4.6,rph:Math.random()*6.283,rper:5200+Math.random()*4600,
-   ph:Math.random()*6.283,per:2400+Math.random()*3200,
+   roff:((Math.random()+Math.random()+Math.random())/3*2-1)*6.6,
+   rph:Math.random()*6.283,rper:7000+Math.random()*6000,
+   ph:Math.random()*6.283,per:6000+Math.random()*5200,
    sz:.35+Math.pow(Math.random(),1.5)*.85,b:0})}
  var fd=new Float32Array(2048),td=new Float32Array(4096);
  var harm=new Float32Array(8),pres=0,rich=0,clar=.7,stab=.7,drawn=false;
@@ -8988,19 +8990,32 @@ header .sub{line-height:1.3!important}
   if(cv.width<10)sizeCv();
   var W=cv.width,S=W/224;drawn=true;
   gx.clearRect(0,0,W,W);gx.globalCompositeOperation='lighter';
-  var spread=1.3-.6*clar,cloudA=.82+.3*rich,flick=(1-stab)*.38;
+  var breath=.95+.05*Math.sin(now/8200*6.283);
+  var spread=1.3-.6*clar,cloudA=(.82+.3*rich)*breath,flick=(1-stab)*.38;
+  /* the cloud's body: one soft radial wash whose brightness at
+     each radius is the harmonic strength there, interpolated
+     between the layer radii so no ring boundary ever shows —
+     the flies below then only add living texture to the glow */
+  var ug=gx.createRadialGradient(CX*S,CY*S,0,CX*S,CY*S,86*S),uA=.28*pres*cloudA;
+  ug.addColorStop(0,'rgba(228,255,170,'+(uA*harm[0]).toFixed(3)+')');
+  for(var u=0;u<8;u++){var uc=u?'196,246,120':'228,255,170';
+   ug.addColorStop(Math.min(.97,RK[u]/86),
+    'rgba('+uc+','+(uA*harm[u]).toFixed(3)+')')}
+  ug.addColorStop(1,'rgba(196,246,120,0)');
+  gx.globalAlpha=1;gx.fillStyle=ug;gx.fillRect(0,0,W,W);
   for(var i=0;i<flies.length;i++){var f=flies[i];
    f.ang+=f.vel*dt/1000;
-   var rr=RK[f.k]+f.roff*spread+Math.sin(now/f.rper*6.283+f.rph)*1.6*spread;
+   var rr=RK[f.k]+f.roff*spread*(1-.05*f.k)+Math.sin(now/f.rper*6.283+f.rph)*2.2*spread;
+   if(rr<2.5)rr=2.5;else if(rr>85.5)rr=85.5;
    var x=CX+rr*Math.cos(f.ang),y=CY+rr*Math.sin(f.ang);
    var shim=flick*(.5+.5*Math.sin(now/97+f.ph*3.1));
-   var bt=pres*harm[f.k]*(0.55+0.45*Math.sin(now/f.per*6.283+f.ph))*(1-shim)*cloudA;
-   f.b+=(bt-f.b)*(1-Math.exp(-dt/210));if(f.b<0)f.b=0;else if(f.b>1)f.b=1;
+   var bt=pres*harm[f.k]*(0.8+0.2*Math.sin(now/f.per*6.283+f.ph))*(1-shim)*cloudA;
+   f.b+=(bt-f.b)*(1-Math.exp(-dt/250));if(f.b<0)f.b=0;else if(f.b>1)f.b=1;
    if(f.b<.02)continue;
-   var gs=15*f.sz*(.45+.7*f.b);
-   gx.globalAlpha=Math.min(1,f.b*1.05);
+   var gs=20*f.sz*(.5+.8*f.b)*(.82+.045*f.k);
+   gx.globalAlpha=Math.min(1,f.b*.95);
    gx.drawImage(spr,(x-gs/2)*S,(y-gs/2)*S,gs*S,gs*S);
-   var cs=4.6*f.sz*(.4+.7*f.b);
+   var cs=4.6*f.sz*(.4+.7*f.b)*(.85+.04*f.k);
    if(cs>1.2&&f.b*(.3+.7*clar)>.16){gx.globalAlpha=Math.min(1,f.b*1.1);
     gx.drawImage(core,(x-cs/2)*S,(y-cs/2)*S,cs*S,cs*S)}}
   gx.globalAlpha=1;gx.globalCompositeOperation='source-over'}
@@ -14374,7 +14389,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2000 (the sync step sets
+   master: sonora-20261122-2015 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
