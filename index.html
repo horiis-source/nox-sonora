@@ -2059,7 +2059,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 23:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 23:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -2143,7 +2143,12 @@ function tx(k){return T[L()][k]}
 
 /* ---- MY INSTRUMENT karte ---- */
 var sec2=document.querySelector('#t2'),sec1=document.querySelector('#t1'),sec0=document.querySelector('#t0');
-var store={};try{store=JSON.parse(localStorage.getItem('noxsonora_inst')||'{}')}catch(e){}
+var store={};try{store=ikSanitize(JSON.parse(localStorage.getItem('noxsonora_inst')||'{}'))}catch(e){store={}}
+/* Saved pitch-map entries are [avgCents, count, sumsq, sum] of
+   finite numbers. Anything else in storage (an older format, a
+   hand-edited value) is dropped here, once, so the renderers
+   below can trust the shape and never throw on a bad entry. */
+function ikSanitize(st){var out={};if(!st||typeof st!=='object'||Array.isArray(st))return out;for(var k in st){var e=st[k];if(!Array.isArray(e)||!isFinite(+k))continue;var a=+e[0],n=+e[1];if(!isFinite(a)||!isFinite(n))continue;out[k]=[a,n,(e[2]==null||!isFinite(+e[2]))?null:+e[2],(e[3]==null||!isFinite(+e[3]))?null:+e[3]]}return out}
 var ikCard=document.createElement('div');ikCard.className='card';
 ikCard.innerHTML='<div class="lab"><span id="ikLab" class="ik-lab"></span><span id="ikSum" class="ik-sum" style="color:var(--mut)"></span></div><div class="hint ik-intro" id="ikIntro"></div><div class="hint ik-hint" id="ikHint"></div><div class="ik-inst"></div><div id="ikGrid" class="ik-grid" style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;align-items:center"><span id="ikWorst" class="ik-worst" style="flex:1;font-size:11.5px;color:var(--mut)"></span><button class="btn sm ik-reset" id="ikReset" style="flex:none;padding:0 14px"></button></div><div class="ik-detail"></div><div class="ik-summary"></div>';
 var ikTopCard=document.createElement('div');ikTopCard.className='card';ikTopCard.id='ikTopCard';ikTopCard.style.flex='none';
@@ -2401,8 +2406,13 @@ var T = {
 };
 function tx(k){return T[k][L==='jp'?1:0]}
 var BROKER='wss://broker.emqx.io:8084/mqtt';
-var cid = localStorage.getItem('sonora_cid') || ('c'+Math.random().toString(36).slice(2,9));
-localStorage.setItem('sonora_cid', cid);
+/* LINK storage goes through these guards: a device whose storage
+   throws on write (private mode, full storage) must never lose
+   the whole LINK tab to one failed save. */
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+var cid = lsGet('sonora_cid') || ('c'+Math.random().toString(36).slice(2,9));
+lsSet('sonora_cid', cid);
 
 /* ---- minimal MQTT 3.1.1 (QoS 0) client ---- */
 function Mqtt(url, id){
@@ -2511,10 +2521,10 @@ nb.onclick=function(){
 
 var mode='child', mq=null, joined=false, room='', kids=new Map(), view='wall', sendT=null, joinT0=0, parT0=0;
 var $i=function(id){return document.getElementById(id)};
-$i('lkName').value=localStorage.getItem('sonora_name')||'';
-$i('lkRoom').value=localStorage.getItem('sonora_room')||'';
+$i('lkName').value=lsGet('sonora_name')||'';
+$i('lkRoom').value=lsGet('sonora_room')||'';
 function applyLang(){
-  L=(localStorage.getItem('noxsonora_lang')==='jp')?'jp':'en';
+  L=(lsGet('noxsonora_lang')==='jp')?'jp':'en';
   sec.querySelectorAll('[data-k]').forEach(function(el){el.textContent=tx(el.dataset.k)});
   $i('lkModeC').textContent=tx('child'); $i('lkModeP').textContent=tx('parent');
   $i('lkName').placeholder=tx('namePh'); $i('lkRoom').placeholder=tx('roomPh');
@@ -2551,13 +2561,13 @@ $i('lkJoin').onclick=function(){
   if(joined){ joined=false; clearInterval(sendT); pulseStop(); if(mq)mq.close(); mq=null; $i('lkJoin').textContent=tx('join'); $i('lkStat').textContent=''; return; }
   room=($i('lkRoom').value||'').trim().toUpperCase();
   if(room.length<4){ $i('lkStat').textContent=tx('needRoom'); return; }
-  localStorage.setItem('sonora_room',room); localStorage.setItem('sonora_name',$i('lkName').value.trim());
+  lsSet('sonora_room',room); lsSet('sonora_name',$i('lkName').value.trim());
   $i('lkStat').textContent=tx('connecting');
   joinT0=Date.now();
   mq=new Mqtt(BROKER, cid);
   mq.onst=function(up){ $i('lkStat').textContent=up?tx('connected')+' · '+room:((Date.now()-joinT0>12000)?tx('blocked'):((Date.now()-joinT0>4000)?tx('still'):tx('connecting'))); };
   mq.onmsg=function(topic,payload){
-    if(topic.slice(-4)==='/ref'){ try{ var j=JSON.parse(payload); if(j.a&&typeof setRef==='function'){ setRef(+j.a); $i('lkStat').textContent=tx('gotA')+' A='+j.a; } }catch(e){} }
+    if(topic.slice(-4)==='/ref'){ try{ var j=JSON.parse(payload); var ra=(j&&typeof j==='object')?Number(j.a):NaN; if(isFinite(ra)&&ra>=430&&ra<=450&&typeof setRef==='function'){ setRef(ra); $i('lkStat').textContent=tx('gotA')+' A='+ra.toFixed(1); } }catch(e){} }
     if(topic.slice(-6)==='/pulse'){ try{ var p=JSON.parse(payload); if(p.on)pulseStart(p.bpm||120,p.t0||Date.now()); else pulseStop(); }catch(e){} }
   };
   mq.connect();
@@ -2570,10 +2580,15 @@ $i('lkJoin').onclick=function(){
 };
 
 /* ---- parent ---- */
+/* Everything a child sends arrives over a public broker: coerce
+   each field to a finite number (or null) before it can reach
+   the wall, the median A, or the meteor judgement, so one
+   crafted member cannot poison or freeze the parent's screen. */
+function lkNum(v){ if(v==null||v===''||typeof v==='boolean')return null; var n=Number(v); return isFinite(n)?n:null; }
 function genRoom(){ return String(Math.floor(100000+Math.random()*900000)); }
 function startParent(){
-  room=localStorage.getItem('sonora_proom')||genRoom();
-  localStorage.setItem('sonora_proom',room);
+  room=lsGet('sonora_proom')||genRoom();
+  lsSet('sonora_proom',room);
   $i('lkRoomBig').textContent=room;
   parT0=Date.now();
   if(mq&&mode==='parent')return;
@@ -2582,11 +2597,15 @@ function startParent(){
   mq.onst=function(up){ $i('lkStatP').textContent=up?tx('connected')+' · '+room:((Date.now()-parT0>12000)?tx('blocked'):((Date.now()-parT0>4000)?tx('still'):tx('connecting'))); };
   mq.onmsg=function(topic,payload){
     var parts=topic.split('/'); if(parts[2]!=='d')return;
-    var id=parts[3]; var j; try{ j=JSON.parse(payload); }catch(e){ return; }
+    var id=parts[3]; if(!id)return;
+    var j; try{ j=JSON.parse(payload); }catch(e){ return; }
+    if(!j||typeof j!=='object')return;
     var k=kids.get(id)||{buf:[]};
-    k.n=j.n||'—'; k.m=j.m; k.c=j.c; k.l=j.l; k.ts=Date.now();
-    if(j.a!=null){ k.a=j.a; k.abuf=k.abuf||[]; k.abuf.push(j.a); if(k.abuf.length>10)k.abuf.shift(); }
-    if(j.m!=null&&j.c!=null){ k.buf.push({m:j.m,c:j.c}); if(k.buf.length>40)k.buf.shift(); }
+    var nmv=j.n==null?'':String(j.n); k.n=nmv.slice(0,24)||'—';
+    k.m=lkNum(j.m); k.c=lkNum(j.c); k.l=lkNum(j.l); k.ts=Date.now();
+    var av=lkNum(j.a);
+    if(av!=null){ k.a=av; k.abuf=k.abuf||[]; k.abuf.push(av); if(k.abuf.length>10)k.abuf.shift(); }
+    if(k.m!=null&&k.c!=null){ k.buf.push({m:k.m,c:k.c}); if(k.buf.length>40)k.buf.shift(); }
     kids.set(id,k);
   };
   mq.connect();
@@ -2595,7 +2614,7 @@ function startParent(){
   setTimeout(function(){ if(mode==='parent'&&mq&&!mq.ok)$i('lkStatP').textContent=tx('blocked'); },12500);
 }
 function stopParent(){ pulseStop(); if(mode!=='parent'&&mq&&!joined){ mq.close(); mq=null; } kids.clear(); $i('lkGrid').innerHTML=''; }
-$i('lkNewRoom').onclick=function(){ localStorage.setItem('sonora_proom',genRoom()); if(mq){mq.close();mq=null;} kids.clear(); $i('lkGrid').innerHTML=''; startParent(); };
+$i('lkNewRoom').onclick=function(){ lsSet('sonora_proom',genRoom()); if(mq){mq.close();mq=null;} kids.clear(); $i('lkGrid').innerHTML=''; startParent(); };
 $i('lkSendA').onclick=function(){ if(mq)mq.publish('sonora1/'+room+'/ref', JSON.stringify({a:A4}), true); $i('lkStatP').textContent='A = '+A4+' Hz'; };
 
 /* ---- 09:50: Today's A from the members' median (one tap on the parent) ---- */
@@ -2623,7 +2642,12 @@ function pulseTick(){
   if(k!==pulse.beat){ pulse.beat=k; pulseFlash(k%4===0); }
 }
 function pulseStart(bpm,t0){
-  pulse.on=true; pulse.bpm=bpm||120; pulse.t0=t0||Date.now(); pulse.beat=-1;
+  /* bpm arrives over the wire: clamp it to the range the sender
+     UI itself allows (30-240) so a crafted value can never spin
+     the beat counter or strobe the screen. */
+  var pb=Number(bpm); if(!isFinite(pb))pb=120; pb=Math.min(240,Math.max(30,pb));
+  var pt=Number(t0); if(!isFinite(pt)||pt<=0)pt=Date.now();
+  pulse.on=true; pulse.bpm=pb; pulse.t0=pt; pulse.beat=-1;
   if(pulse.timer)clearInterval(pulse.timer);
   pulse.timer=setInterval(pulseTick,40); pulseUi();
 }
@@ -2679,7 +2703,9 @@ var lkTwSince=0;
    received (no extra traffic, and nothing can fire where the
    link itself cannot connect and no data ever arrives): at
    least 2 active members, every one within ±5 cents, held
-   for 1.2 s. It fires once per gathering — while the moment
+   for 1.2 s — or, since 2026-11-26, a single child with the
+   parent in tune as well (parent + child both within ±5¢).
+   It fires once per gathering — while the moment
    lasts it never repeats — and re-arms only when the moment
    breaks. The session count shows quietly in the wall header;
    the running total is kept on this device. */
@@ -2729,14 +2755,20 @@ function fireMeteor(){
 setInterval(function(){
   if(tab!==3||mode!=='parent')return;
   var now=Date.now(), grid=$i('lkGrid'), seen=new Set();
+  /* Cells are looked up in a Map keyed by the raw member id —
+     never through a selector string, so an id containing a
+     quote (or any selector syntax) cannot throw and stall the
+     wall for everyone behind it. */
+  var cellById=new Map();
+  grid.querySelectorAll('.lkcell').forEach(function(c){ cellById.set(c.dataset.kid,c); });
   kids.forEach(function(k,id){
     if(now-k.ts>15000){ kids.delete(id); return; }
     seen.add(id);
-    var cell=grid.querySelector('[data-kid="'+id+'"]');
+    var cell=cellById.get(id);
     if(!cell){
       cell=document.createElement('div'); cell.className='lkcell'; cell.dataset.kid=id;
       cell.innerHTML='<div class="nm"></div><div><span class="nt"></span><span class="ct2"></span></div><canvas></canvas>';
-      grid.appendChild(cell);
+      grid.appendChild(cell); cellById.set(id,cell);
     }
     cell.classList.toggle('dim', now-k.ts>4000||!k.l||k.l<0.01);
     cell.querySelector('.nm').textContent=k.n;
@@ -2751,7 +2783,15 @@ setInterval(function(){
   /* 12:00: ALL-IN-TUNE TWINKLE — every active member within ±5¢ for >=1.2 s (needs >=2 members), judged from data already received (no extra traffic) */
   var twActive=0,twAll=true;
   kids.forEach(function(k){ if(now-k.ts<=4000&&k.c!=null){ twActive++; if(Math.abs(k.c)>5)twAll=false; } });
-  if(twAll&&twActive>=2){ if(!lkTwSince)lkTwSince=now; }else lkTwSince=0;
+  /* 2026-11-26 (user decision): one child is enough when the
+     parent is in tune too — parent + 1 child, both within ±5¢,
+     held 1.2 s, fires the same moment. Two or more children keep
+     the original judgement (theirs alone, parent not counted).
+     The parent's own reading is curData() — the very value a
+     child would send — so both sides are judged by one ruler. */
+  var metOK=twAll&&twActive>=2;
+  if(!metOK&&twAll&&twActive===1){ var ownD=curData(); if(ownD.c!=null&&Math.abs(ownD.c)<=5)metOK=true; }
+  if(metOK){ if(!lkTwSince)lkTwSince=now; }else lkTwSince=0;
   grid.classList.toggle('lkTwinkle',!!(lkTwSince&&now-lkTwSince>=1200));
   /* BUILD 09:30: one meteor per all-in-tune moment — edge-triggered
      on the twinkle's own condition; re-arms only when it breaks */
@@ -9419,8 +9459,8 @@ header .sub{line-height:1.3!important}
 "use strict";
 function L(){return localStorage.getItem('noxsonora_lang')==='jp'?'jp':'en'}
 var NN=['C','D\u266d','D','E\u266d','E','F','G\u266d','G','A\u266d','A','B\u266d','B'];
-var T={en:{cf:'EASY CHORD FINDER',none:'Press the chord tones',root:'Root position',hold:'HOLD',clear:'CLEAR'},
-       jp:{cf:'簡単コード解析',none:'構成音を押してください',root:'基本形',hold:'持続',clear:'クリア'}};
+var T={en:{cf:'EASY CHORD FINDER',none:'Tap chord tones',root:'Root position',hold:'HOLD',clear:'CLEAR'},
+       jp:{cf:'簡単コード解析',none:'構成音をタップ',root:'基本形',hold:'持続',clear:'クリア'}};
 var tkb=document.getElementById('tkb');if(!tkb)return;
 var LO=72,HI=96,WSET=[0,2,4,5,7,9,11];
 /* BUILD 2026-11-22 03:00: the visible octave range is a setting of
@@ -9736,7 +9776,7 @@ var NN=['C','D\u266d','D','E\u266d','E','F','G\u266d','G','A\u266d','A','B\u266d
 function nm(m){return NN[m%12]+(Math.floor(m/12)-1)}
 function L(){return localStorage.getItem('noxsonora_lang')==='jp'?'jp':'en'}
 var LO=36,HI=96,selM=null,lastSig='';
-function load(){try{return JSON.parse(localStorage.getItem('noxsonora_inst')||'{}')}catch(e){return{}}}
+function load(){try{var st=JSON.parse(localStorage.getItem('noxsonora_inst')||'{}');var out={};if(st&&typeof st==='object'&&!Array.isArray(st)){for(var k in st){var e=st[k];if(Array.isArray(e)&&isFinite(+e[0])&&isFinite(+e[1]))out[k]=[+e[0],+e[1],(e[2]==null||!isFinite(+e[2]))?null:+e[2],(e[3]==null||!isFinite(+e[3]))?null:+e[3]]}}return out}catch(e){return{}}}
 function fc(v){return (v>0?'+':'')+Math.round(v)+'\u00a2'}
 function spread(e){if(!e||e[1]<2||e[2]==null)return null;var n=e[1];var mn=(e[3]!=null)?e[3]/n:e[0];var v=e[2]/n-mn*mn;return Math.sqrt(Math.max(0,v))}
 function render(){
@@ -10114,12 +10154,15 @@ function drawMerged(){
   /* time caption: right-aligned to the plot's right edge
      (BUILD 2026-11-22 04:00: small readouts hug the edges) */
   x.font='600 9px sans-serif';x.fillStyle=MUTc(.55);x.textAlign='right';x.fillText('-12 SEC',plotW-2,h-8);x.textAlign='left';
-  /* right-hand scale: +25 / +10 / 0 (lime pill) / -10 / -25 */
+  /* right-hand scale: +25 / +10 / 0 (lime pill) / -10 / -25.
+     2026-11-26 polish: the lime pill belongs to a sounding tone —
+     in silence the 0 is a plain scale figure like its neighbours,
+     never a bright badge that reads as a live "0 cents" value. */
   x.font='700 11px sans-serif';
   [25,10,0,-10,-25].forEach(function(v){var y=cy-v*sc;
    x.strokeStyle=GRIDc(.25);x.lineWidth=1;
    x.beginPath();x.moveTo(plotW+2,y);x.lineTo(plotW+7,y);x.stroke();
-   if(v===0){x.fillStyle=ACC();x.beginPath();
+   if(v===0&&cur!=null){x.fillStyle=ACC();x.beginPath();
     if(x.roundRect)x.roundRect(plotW+11,y-9,30,18,9);else x.rect(plotW+11,y-9,30,18);
     x.fill();x.fillStyle='#12240a';x.textAlign='center';x.fillText('0',plotW+26,y+4);x.textAlign='left'}
    else{var near=cur!=null&&Math.abs(cur-v)<=2.5;
@@ -13734,7 +13777,7 @@ if(lb)lb.addEventListener('click',function(){setTimeout(lab,760)});
 var NN=['C','D\u266d','D','E\u266d','E','F','G\u266d','G','A\u266d','A','B\u266d','B'];
 function nm(m){return NN[m%12]+(Math.floor(m/12)-1)}
 var LO=36,HI=96;
-function load(){try{return JSON.parse(localStorage.getItem('noxsonora_inst')||'{}')}catch(e){return{}}}
+function load(){try{var st=JSON.parse(localStorage.getItem('noxsonora_inst')||'{}');var out={};if(st&&typeof st==='object'&&!Array.isArray(st)){for(var k in st){var e=st[k];if(Array.isArray(e)&&isFinite(+e[0])&&isFinite(+e[1]))out[k]=[+e[0],+e[1],(e[2]==null||!isFinite(+e[2]))?null:+e[2],(e[3]==null||!isFinite(+e[3]))?null:+e[3]]}}return out}catch(e){return{}}}
 function acc(){try{return ACC()}catch(e){return '#b9f36a'}}
 function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
 function countLines(g,text,maxW){var line='',n=1;for(var i=0;i<text.length;i++){var t=line+text[i];if(g.measureText(t).width>maxW&&line){n++;line=text[i]}else line=t}return n}
@@ -14121,7 +14164,26 @@ function setAccentVars(hex){
 }
 function accentGuard(){
  var h=document.documentElement;
- if(h.getAttribute('data-lt')!=='1'){setAccentVars(THEME().c);return}
+ if(h.getAttribute('data-lt')!=='1'){
+  /* 2026-11-26 polish: on photo / scene grounds the accent itself
+     can sink into the brightest (top) band — Santorini's dusty
+     blue on its own sky read at ~1.9:1. The veil guards the white
+     text; the accent is guarded here, against the same effective
+     band luminance the veil logic uses (mean + half the spread).
+     Where it falls under 3.0 the accent is lifted toward white,
+     hue kept, only until it reads — dark grounds keep their
+     accent untouched, and derived shades follow via
+     setAccentVars, so nothing else in the theme moves. */
+  var acc=THEME().c;
+  if(lastSample){
+   var Leff=lastSample.mean[0]+0.5*Math.min(lastSample.sd[0],0.30);
+   if(contrast(hexLum(acc),Leff)<3.0){
+    var cand2=acc;
+    for(var st=1;st<=10;st++){cand2=thShade(acc,st*0.07);if(contrast(hexLum(cand2),Leff)>=3.0)break}
+    acc=cand2;
+   }
+  }
+  setAccentVars(acc);return}
  var b=BASE();if(!b||!b.flat)return;
  var bgL=hexLum(b.flat[0]),acc=THEME().c;
  if(contrast(hexLum(acc),bgL)>=3.0){setAccentVars(acc);return}
@@ -14680,7 +14742,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2300 (the sync step sets
+   master: sonora-20261122-2315 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -15310,7 +15372,7 @@ window.__brDrawer={locked:true,
    the tab bar and the voice pill leave. The header row stays
    whole — reference A and the quick pill itself live there. */
 #quickBtn{flex:none;height:21px;padding:0 9px;font-size:10px;font-weight:700;letter-spacing:.08em;border-radius:99px;margin-left:7px;vertical-align:1px}
-#tkbTr #tcfRes{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+body.quick #tkbTr #tcfRes{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 body.quick #nav{display:none!important}
 body.quick #vcFab{display:none!important}
 body.quick #t0 #ikTopCard,body.quick #t0 #ffCard{display:none!important}
@@ -15625,4 +15687,23 @@ function addManual(){
 addManual();setTimeout(addManual,1500);setTimeout(addManual,4000);
 })();
 </script>
+<style id="cssPolish234">
+/* ===== 2026-11-26 POLISH (paid-audit small items 1 & 2) =====
+   (1) #tdot, the tempo dial's rotating layer, was a full square:
+   rotated, its bounding box swept past the dial and 7px off the
+   screen's left edge. The layer is now a slim 8px strip — the
+   dot rides it exactly as before (same centre, same orbit), and
+   the strip's bounding box stays inside the dial's border box
+   at every angle and every dial size.
+   (2) The top keyboard's idle hint (#tcfRes in #tkbTr) was
+   ellipsised in both languages: a QUICK-mode nowrap had leaked
+   over the whole app (now scoped to body.quick, above) and the
+   row was too tight. The row's buttons give back 4px each, and
+   the idle hint — only the hint; results keep their one line —
+   wraps again, as the row was designed to let it (BUILD 02:45),
+   with the shorter wording "構成音をタップ / Tap chord tones". */
+#tdot{width:8px}
+#tkbTr .btn{padding:0 6px!important}
+#tkbTr #tcfRes:not(.hit){white-space:normal;line-height:1.3}
+</style>
 </body></html>
