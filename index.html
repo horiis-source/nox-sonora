@@ -2037,7 +2037,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 22:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 22:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -14643,7 +14643,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2215 (the sync step sets
+   master: sonora-20261122-2230 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -15436,4 +15436,35 @@ function wrap(){
 if(!wrap()){var n=0;var t=setInterval(function(){if(wrap()||++n>24)clearInterval(t)},250)}
 })();
 </script>
+<style id="fixLtDial">
+/* ===== READABILITY FIX (post-BUILD 22:15; stamp unchanged) =====
+   Text that sits on a FIXED dark face must not follow the theme's
+   text/accent colours: the readability guard darkens --tx/--mut/--ac
+   for light bases (data-lt), which made such text sink into the
+   dark face (worst case: the top BPM number, #38332a on the navy
+   dial, ~1.3:1). The rules below pin the colours those faces were
+   designed with. The default navy theme renders exactly as before
+   (the pinned values ARE the navy defaults); the data-lt rules
+   only brighten accent-driven text back up on dark faces. */
+/* the BPM dial: its face is always the same deep navy */
+#tdial{color:#f4f7fa}
+#tcenter small{color:#9aabba}
+html[data-lt='1'] #cdLab{color:rgba(230,244,205,.95)}
+html[data-lt='1'] #cdLab{color:color-mix(in srgb,var(--ac) 72%,#fff)}
+/* the Tap chip: its face is always the dial's dark miniature */
+html[data-lt='1'] #tapChip{color:#d9f2ab}
+html[data-lt='1'] #tapChip{color:color-mix(in srgb,var(--ac) 62%,#fff)}
+/* the galaxy stage is always black space */
+html[data-lt='1'] #gxStage .btn:not(.act):not(.pri){color:rgba(233,246,216,.9)!important}
+html[data-lt='1'] #gxStage #gxSub .btn:not(.act):not(.pri){color:rgba(219,232,244,.62)!important}
+html[data-lt='1'] #gxTag{color:rgba(238,248,224,.92)}
+html[data-lt='1'] #gxTag{color:color-mix(in srgb,var(--ac) 70%,#fff)}
+/* the bottom nav bar is always dark */
+html[data-lt='1'] #nav button.on{color:var(--ac)!important}
+html[data-lt='1'] #nav button.on{color:color-mix(in srgb,var(--ac) 65%,#fff)!important}
+/* the header language pill takes the same face/text pairing as #pill */
+html:not([data-base='navy']) #langBtn{background:var(--pillbg)!important;color:var(--pilltx)}
+/* the embouchure status chip sits on the dark camera stage */
+html[data-lt='1'] #t7 .embStage #embStatus{color:#dfe7ee}
+</style>
 </body></html>
