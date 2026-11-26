@@ -1349,6 +1349,16 @@ function stopMic(){stream&&stream.getTracks().forEach(t=>t.stop());mics&&mics.di
    playback starts and nothing currently needs the mic, stop the mic
    tracks so playback gets the full playback session. The MIC button
    re-enables it exactly as before (stopMic keeps the UI truthful). */
+/* PAID-FIX 2026-11-26 (paid-product audit, the one blocking item):
+   mStart / rbStart no longer call micYield(). The yield stopped the
+   measurement mic the moment the metronome started and nothing ever
+   restarted it, so the pitch display froze at the last note while
+   the buyer believed the app had hung. Measurement now coexists
+   with playback — the click blanking (160 ms mask) keeps the clicks
+   out of the analysis, verified stable (40/40 samples). micYield /
+   micBusy stay defined for any future caller, but a caller that
+   stops the mic must say so on screen and restart it afterwards:
+   the mic is never stopped silently again. */
 function micBusy(){
  try{if(typeof REC!=='undefined'&&REC&&REC.on)return true}catch(e){}
  try{if(typeof DY!=='undefined'&&DY&&(DY.run||DY.calMode))return true}catch(e){}
@@ -1416,7 +1426,13 @@ async function startMicOld(){
   catch(e){$('#msg').textContent='Mic unavailable — check permission settings'}}
 var _micBtn=$('#mic');if(_micBtn)_micBtn.onclick=startMic;
 
-function detect(b,sr){const N=2048,min=sr/1200|0,max=Math.min(sr/60|0,b.length-N),r=new Float32Array(max+2);let g=0;
+/* PAID-FIX 2026-11-26: the lag floor was sr/1200 — a 1200 Hz
+   ceiling. A note above it (e.g. E6 at 1324 Hz with a weak
+   fundamental) could only match at twice its period and read an
+   octave low. The floor is now sr/2400 (2400 Hz); the first-peak
+   rule (>= .85 of the global max) is unchanged, and the full
+   audit pitch suite was re-run to confirm no case regressed. */
+function detect(b,sr){const N=2048,min=sr/2400|0,max=Math.min(sr/60|0,b.length-N),r=new Float32Array(max+2);let g=0;
  for(let l=min;l<=max;l++){let s=0;for(let i=0;i<N;i++)s+=b[i]*b[i+l];r[l]=s;if(s>g)g=s}
  let r0=0;for(let i=0;i<N;i++)r0+=b[i]*b[i];if(g/r0<.35)return 0;
  for(let l=min+1;l<max;l++)if(r[l]>=.85*g&&r[l]>r[l-1]&&r[l]>=r[l+1]){const a=r[l-1],c=r[l],d=r[l+1],p=(a-d)/(2*(a-2*c+d))||0;return sr/(l+p)}return 0}
@@ -1551,7 +1567,7 @@ function qClick(t,kind){CLKT.push(t);if(CLKT.length>24)CLKT.splice(0,CLKT.length
 function mClick(beat,t,bar,kind){qClick(t,kind);if(kind=='sub')return;const ms=Math.max(0,(t-ac.currentTime)*1000);setTimeout(()=>{if(!M.on)return;if(M.mode=='pattern'){$$('#pgrid .pcell').forEach((e,i)=>e.classList.toggle('cur',i==bar));if(bar!==lastBar){lastBar=bar;mDots(PAT[bar])}}$$('#mdots i').forEach((e,i)=>e.classList.toggle('on',i==beat));const p=$('#mpulse');if(p){p.classList.remove('hit');void p.offsetWidth;p.classList.add('hit')}},ms)}
 const SUBD={'1':[0],'2':[0,.5],'3':[0,1/3,2/3],'4':[0,.25,.5,.75],'dot':[0,.75]};
 function mSched(){if(M.stopAfter)return;while(M.nextT<ac.currentTime+0.12){const bn=mBeatsNow(),spb=60/M.bpm;SUBD[M.sub].forEach(o=>mClick(M.cur,M.nextT+o*spb,M.bar,o==0?(M.cur==0?'acc':'main'):'sub'));M.nextT+=spb;M.cur++;if(M.cur>=bn){M.cur=0;if(M.mode=='pattern'){if(M.bar==15&&!M.loop){M.stopAfter=M.nextT;break}M.bar=(M.bar+1)%16}}}}
-function mStart(){ctx();if(ac.state=='suspended')ac.resume();micYield();M.on=true;M.cur=0;M.bar=0;M.stopAfter=0;lastBar=-1;if(M.mode=='pattern')mDots(PAT[0]);else mDots();M.nextT=ac.currentTime+0.06;M.timer=setInterval(()=>{mSched();if(M.stopAfter&&ac.currentTime>=M.stopAfter-0.03)mStop()},25);var _md=document.getElementById('mdial');if(_md)_md.classList.add('playing')}
+function mStart(){ctx();if(ac.state=='suspended')ac.resume();M.on=true;M.cur=0;M.bar=0;M.stopAfter=0;lastBar=-1;if(M.mode=='pattern')mDots(PAT[0]);else mDots();M.nextT=ac.currentTime+0.06;M.timer=setInterval(()=>{mSched();if(M.stopAfter&&ac.currentTime>=M.stopAfter-0.03)mStop()},25);var _md=document.getElementById('mdial');if(_md)_md.classList.add('playing')}
 function mStop(){M.on=false;M.stopAfter=0;lastBar=-1;clearInterval(M.timer);var _md2=document.getElementById('mdial');if(_md2)_md2.classList.remove('playing');$$('#mdots i').forEach(e=>e.classList.remove('on'));$$('#pgrid .pcell').forEach(e=>e.classList.remove('cur'))}
 window.mToggle=()=>M.on?mStop():mStart();
 {const _msEl=$('#mslider');if(_msEl)_msEl.oninput=e=>mSet(+e.target.value)}
@@ -1736,6 +1752,12 @@ function drawCents(){const RA=gReview?recArrays():null;let data=RA?RA.c:histC,ld
   x.font='10.5px Inter';x.lineWidth=1;
   const grd=x.createLinearGradient(0,y(5),0,y(-5));grd.addColorStop(0,ACR(0));grd.addColorStop(.5,ACR(.09));grd.addColorStop(1,ACR(0));x.fillStyle=grd;x.fillRect(0,y(5),w,y(-5)-y(5));
   x.lineWidth=1;x.strokeStyle=GRIDc(.05);[-0.5,0.5].forEach(function(fr){const yy=mid+fr*(mid-6);x.beginPath();x.moveTo(0,yy);x.lineTo(w,yy);x.stroke()});x.strokeStyle=ACR(.5);x.beginPath();x.moveTo(0,mid);x.lineTo(w,mid);x.stroke();
+  /* PAID-FIX (user spec 2026-11-26, corrected): guide lines at -13.7c
+     (just major 3rd) and +2c (just fifth) — the "clear" version of
+     proposal_cents_lines_a: hairlines and right-side labels one step
+     stronger, still uncluttered. */
+  x.strokeStyle='rgba(223,233,245,.30)';x.lineWidth=1;[-13.7,2].forEach(function(gv){if(Math.abs(gv)>=R)return;const yy=y(gv);x.beginPath();x.moveTo(0,yy);x.lineTo(w,yy);x.stroke()});
+  x.fillStyle='rgba(198,213,232,.8)';x.font='8px Inter';x.textAlign='right';if(R>13.7)x.fillText('-13.7',w-30,y(-13.7)-2.5);if(R>2)x.fillText('+2',w-30,y(2)-2.5);x.textAlign='left';
   const n=data.length,span=gReview?Math.max(1,n):240;
   x.lineCap='round';x.lineJoin='round';
   i=0;while(i<n){if(data[i]==null){i++;continue}let j=i;while(j<n&&data[j]!=null)j++;
@@ -1930,7 +1952,7 @@ const TR={
 'WAVEFORM':'波形','SPECTRUM':'スペクトル','BAND ANALYSIS':'バンド分析','SUB':'超低音','BASS':'低音','LOW MID':'中低音','MID':'中音','HIGH':'高音','BRILLIANCE':'超高音',
 'PEAK':'ピーク','CENTROID':'重心','STABILITY':'安定度','Choose an input source (Synth / Mic / File) in the Trace tab. S = solo, M = mute':'入力はトレースのタブで選択（シンセ／マイク／ファイル）。S=ソロ、M=ミュート',
 'PITCH GRAPH':'ピッチグラフ','Play a note — its name and deviation appear here':'音を出すと、音名とずれがここに出ます','12 NOTES':'12音','6 NOTES':'6音','24 NOTES':'24音',
-'DIRECTOR KEYBOARD':'ディレクターキーボード','DIRECTOR':'ディレクター','USE SETTINGS':'設定に従う','HOLD OFF':'ホールド OFF','HOLD ON':'ホールド ON','STOP ALL':'全停止','STOP':'停止',
+'DIRECTOR KEYBOARD':'ディレクターキーボード','ENSEMBLE LINK':'合奏リンク','CHORD PROGRESSION':'和音進行','EMBOUCHURE CHECK':'アンブシュア・チェック','DIRECTOR':'ディレクター','USE SETTINGS':'設定に従う','HOLD OFF':'ホールド OFF','HOLD ON':'ホールド ON','STOP ALL':'全停止','STOP':'停止',
 'Plays intervals from the tonic set in Settings. Chords welcome':'設定の主音から音程を鳴らします。和音もできます',
 'DRONE':'ドローン','UNISON':'ユニゾン','MAJ 3RD':'長3度','MIN 3RD':'短3度','MAJ':'長和音','MIN':'短和音','▶ START DRONE':'▶ ドローン開始','■ STOP DRONE':'■ ドローン停止',
 'SESSION LOG':'セッション記録','AVG':'平均','HIGHEST':'最高','LOWEST':'最低','RANGE':'揺れ幅','SOUNDING TIME':'鳴っていた時間','COACH COMMENT':'コーチコメント',
@@ -2037,7 +2059,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 22:45';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 23:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -2369,7 +2391,7 @@ var T = {
   needRoom:['Enter the room code from the parent','親機の部屋番号を入れてください'],
   gotA:['Reference A received from parent','親機から基準Aを受け取りました'],
   members:['members','人 接続中'], waiting:['waiting','待機中'], off:['—','—'],
-  blocked:['No connection — this site blocks outside links. Open the published app instead.','つながりません — このサイトでは外部への接続が遮断されています。公開版のアプリで開いてください'],
+  blocked:['No connection yet — check your network (Wi-Fi / signal). Still trying.','つながりません — 通信環境（Wi-Fi・電波）を確認してください。接続は続けています'],
   medA:["MEMBERS' A — MEDIAN",'みんなのA（中央値）'],
   useMed:["USE AS TODAY'S A",'これを今日のAにする'],
   pulse:['SYNC PULSE','全員シンク・パルス'],
@@ -3805,7 +3827,8 @@ function rbSched(){
 }
 function rbStart(){
  if(typeof ctx==='function')ctx();if(typeof ac!=='undefined'&&ac&&ac.state==='suspended')ac.resume();
- if(typeof micYield==='function')micYield();
+ /* PAID-FIX 2026-11-26: no micYield here either — playback starts
+    no longer stop the measurement mic (see the note at micBusy). */
  /* BUILD 2026-11-22 13:15: entering rubato no longer stops the
     metronome body — the two playbacks are independent, each
     ruled from its own surface (see __topToggle below). */
@@ -8851,6 +8874,8 @@ header .sub{line-height:1.3!important}
  function pt(r,v){var a=-v*STEP*Math.PI/180;return [CX+r*Math.cos(a),CY+r*Math.sin(a)]}
  if(dots){[[2,'5TH'],[-13.7,'3RD']].forEach(function(d){var p=pt(86.5,d[0]);var c=document.createElementNS(NS,'circle');
   c.setAttribute('cx',p[0].toFixed(2));c.setAttribute('cy',p[1].toFixed(2));c.setAttribute('r','2.3');c.setAttribute('fill','#dfe9f5');c.setAttribute('opacity','.9');dots.appendChild(c)})}
+ /* Dial dots: the existing -13.7c / +2c pair above stays as-is
+    (user confirmed 2026-11-26 — no dial change). */
  var or=document.getElementById('openRhythm');
  if(or)or.addEventListener('click',function(){var nb=document.querySelectorAll('#nav button')[2];if(nb)nb.click()});
  var cv2=document.getElementById('flyCv'),fx=cv2?cv2.getContext('2d'):null;
@@ -9977,6 +10002,18 @@ function drawMerged(){
   for(var g=-25;g<=25;g+=5){var y=cy-g*sc;
    x.strokeStyle=g===0?ACR(.38):GRIDc(.06);x.lineWidth=g===0?1.2:1;
    x.beginPath();x.moveTo(0,y);x.lineTo(plotW,y);x.stroke()}
+  /* PAID-FIX 2026-11-26 (user spec, corrected from +5 to +2):
+     guide lines at -13.7c (just major 3rd) and +2c (just fifth)
+     — the "clear" version of proposal_cents_lines_a, the same
+     recipe as the plain trace renderer: quiet hairlines and
+     small labels at the plot's right edge, nothing more. This
+     merged renderer is the live one on tab 0 (drawCents is
+     replaced with drawMerged below); the plain renderer keeps
+     its own pair for the review / frozen states. */
+  x.strokeStyle='rgba(223,233,245,.30)';x.lineWidth=1;
+  [-13.7,2].forEach(function(gv){var yy=yOf(gv);x.beginPath();x.moveTo(0,yy);x.lineTo(plotW,yy);x.stroke()});
+  x.fillStyle='rgba(198,213,232,.8)';x.font='8px Inter, sans-serif';x.textAlign='right';
+  x.fillText('-13.7',plotW-4,yOf(-13.7)-2.5);x.fillText('+2',plotW-4,yOf(2)-2.5);x.textAlign='left';
   /* time gridlines: every 3 s */
   x.strokeStyle=GRIDc(.05);x.lineWidth=1;
   for(var s=3;s<12;s+=3){var gx=rightX-(s/WIN)*plotW;
@@ -14643,7 +14680,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2245 (the sync step sets
+   master: sonora-20261122-2300 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -15493,4 +15530,99 @@ html[data-lt='1'] #cpRootL{color:var(--tx)!important}
 html[data-lt='1'] #thmPreLab{color:#38332a!important}
 html[data-lt='1'] #thmPreLab{color:var(--tx)!important}
 </style>
+<style id="fixPaidCss">
+/* ===== PAID-FIX 2026-11-26 (CSS) =====
+   1) FULL CONDUCT bar (#acBar): in EN the row wants 416px —
+      431px with a 3-digit BPM showing — inside a 350px card,
+      so the START button sat up to 46px off screen (and JP
+      overflowed internally while conducting). The BPM readout
+      now stacks (number over the tiny BPM label — the same
+      shape as the top dial), the title and meta tighten, and
+      the button narrows, only where width is scarce. Wider
+      screens keep the original proportions. */
+#acBpmW{display:flex;flex-direction:column;align-items:center}
+#acBpmW small{margin-left:0}
+@media (max-width:470px){
+ #acBar{gap:6px}
+ #acBar .lab{font-size:11px !important;letter-spacing:.06em !important}
+ #acMeta{min-width:0 !important}
+ #acBtn{width:74px}
+}
+@media (max-width:370px){
+ #acBar{gap:3px}
+ #acBar .lab{font-size:10.5px !important;letter-spacing:.05em !important}
+ #acBtn{width:60px}
+ #acBpmW b{font-size:20px}
+}
+/* 2) LINK head row: EN at 390px put the seg / JOIN 5px past
+      the right edge. Tighten only in the 371–400px band; the
+      existing <=370px rules already fit, and wider screens
+      fit as designed. */
+@media (min-width:371px) and (max-width:400px){
+ .lkHeadRow{gap:8px}
+ .lkHeadRow .seg{gap:4px}
+ .lkHeadRow .seg button{min-width:54px;padding:0 9px;font-size:12px}
+ #lkJoin{min-width:74px !important;padding:0 11px !important}
+}
+/* 3) mic-denied toast (JS below): the silent-mode notice's
+      shape, reused — fixed, quiet, gone in seconds. */
+#micNote{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:9991;background:rgba(10,18,30,.93);color:#e8f2e4;border:1px solid rgba(185,243,106,.45);border-radius:12px;padding:9px 14px;font-size:12px;font-weight:600;max-width:86vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .35s;line-height:1.55}
+#micNote.show{opacity:1}
+/* 4) the manual link at the foot of the COLOR & SCENE card
+      (page 6): one small quiet pill, nothing more. */
+#manualLink{display:block;width:fit-content;margin:16px auto 2px;padding:7px 16px;font-size:11px;letter-spacing:.18em;color:var(--mut);text-decoration:none;border:1px solid var(--line);border-radius:99px}
+#manualLink:active{color:var(--ac);border-color:rgb(var(--acrgb)/.55)}
+</style>
+<script id="fixPaidJs">
+/* ===== PAID-FIX 2026-11-26 (JS) =====
+   (1) Mic denied: the auto-start stays silent by design, but a
+       buyer whose permission is DENIED must not be left tapping
+       at a dead START. When a start attempt the user asked for
+       (dial / mic button / quick entry, or the wake-up tap)
+       fails with NotAllowedError, a quiet toast — the silent-
+       mode notice's shape — gives the reason and the remedy,
+       throttled so retries do not spam it. The persistent
+       #micErr line keeps the message too, now translated by
+       the RX entry below.
+   (2) The manual: one small link at the foot of the COLOR &
+       SCENE card on page 6 — inside the card, because page 6's
+       child guard hides unknown direct children of the
+       section itself. */
+(function(){
+'use strict';
+function jpL(){try{return localStorage.getItem('noxsonora_lang')==='jp'}catch(e){return false}}
+try{RX.push([/^Mic permission was denied\. Allow the mic for this site in your browser settings$/,function(){return 'マイクが許可されていません。ブラウザの設定で、このサイトのマイクを許可してください'}])}catch(e){}
+var lastTap=0;document.addEventListener('pointerdown',function(){lastTap=Date.now()},true);
+var lastShown=0;
+function showMicNote(){
+ var now=Date.now();if(now-lastShown<15000)return;lastShown=now;
+ var el=document.getElementById('micNote');
+ if(!el){el=document.createElement('div');el.id='micNote';document.body.appendChild(el)}
+ el.textContent=jpL()?'マイクが許可されていません。ブラウザの設定でこのサイトのマイクを許可してから、もう一度タップしてください':'Mic not allowed — allow the mic for this site in your browser settings, then tap again.';
+ el.classList.add('show');setTimeout(function(){el.classList.remove('show')},6500);
+}
+try{
+ if(typeof micFail==='function'){
+  var _mf=micFail;
+  micFail=function(t){
+   if(/denied/i.test(t||'')){
+    var gest=false;try{gest=!!micTap}catch(e){}
+    if(gest||Date.now()-lastTap<2500)showMicNote();
+   }
+   return _mf(t);
+  };
+ }
+}catch(e){}
+try{TR['USER GUIDE']='取扱マニュアル'}catch(e){}
+function addManual(){
+ var tc=document.getElementById('thmCard');if(!tc||document.getElementById('manualLink'))return;
+ var a=document.createElement('a');a.id='manualLink';
+ a.href='https://muse.ai/s/sonora-intelligence-qu-xi-maniyuaru-txt6xngxwxdxfpxhxz/EUwYrAGh79tuGWH4gNEZXujv658cb4cHYhk-oApaREg';
+ a.target='_blank';a.rel='noopener';a.textContent='USER GUIDE';
+ tc.appendChild(a);
+ if(typeof trAll==='function')trAll();
+}
+addManual();setTimeout(addManual,1500);setTimeout(addManual,4000);
+})();
+</script>
 </body></html>
