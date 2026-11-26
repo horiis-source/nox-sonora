@@ -2037,7 +2037,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 22:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 22:45';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -14643,7 +14643,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2230 (the sync step sets
+   master: sonora-20261122-2245 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -15466,5 +15466,31 @@ html[data-lt='1'] #nav button.on{color:color-mix(in srgb,var(--ac) 65%,#fff)!imp
 html:not([data-base='navy']) #langBtn{background:var(--pillbg)!important;color:var(--pilltx)}
 /* the embouchure status chip sits on the dark camera stage */
 html[data-lt='1'] #t7 .embStage #embStatus{color:#dfe7ee}
+/* the SOUND separators sit on the galaxy stage's black face: the fixed
+   28%-alpha light colour (msoundStyle) is a hairline even on the dark
+   page (2.1:1), and on a light base the bright page around the black
+   stage makes the slashes disappear. In light themes only, pin them
+   to the same light colour at full strength (~16:1 on the stage). */
+html[data-lt='1'] #msound .msSep{color:rgba(219,232,244,.92)!important}
+html[data-lt='1'] #msound .msSep{color:#dbe8f4!important}
+/* VOCAL field labels (LV / OCT / VOL / OUT / HARMONY / BACK) sit on the
+   light card face: the fixed #93a7c9 (5074, !important) was designed
+   for the dark card, and on a light base it sinks to ~2.1:1. In light
+   themes only, use the theme's own text colour — the same colour the
+   VOCAL title already uses. The galaxy volume-row label (.lab inside
+   #gxStage) and the section titles are not touched by this rule. */
+html[data-lt='1'] #vcCard .vcRow .lab{color:#38332a!important}
+html[data-lt='1'] #vcCard .vcRow .lab{color:var(--tx)!important}
+/* The chord-progression root label (#cpRootL, p5) and the theme
+   preset label (#thmPreLab, p6) carry the same fixed #93a7c9 .lab
+   colour (5074) as the VOCAL labels above, designed for the dark
+   card — on a light base they sink to ~2.3:1 / ~1.6:1. In light
+   themes only, use the theme's own text colour, as the VOCAL
+   labels do. Scoped to these two ids only: the other .lab labels
+   (e.g. section titles on dark faces) are not touched. */
+html[data-lt='1'] #cpRootL{color:#38332a!important}
+html[data-lt='1'] #cpRootL{color:var(--tx)!important}
+html[data-lt='1'] #thmPreLab{color:#38332a!important}
+html[data-lt='1'] #thmPreLab{color:var(--tx)!important}
 </style>
 </body></html>
