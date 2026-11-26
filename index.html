@@ -2037,7 +2037,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 22:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 22:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -14643,7 +14643,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2200 (the sync step sets
+   master: sonora-20261122-2215 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
@@ -15398,6 +15398,42 @@ setInterval(syncAll,700);syncAll();
 var lb=el('langBtn');if(lb)lb.addEventListener('click',function(){setTimeout(syncAll,520)});
 window.__quick={on:function(){return document.body.classList.contains('quick')},
  toggle:function(){var b=el('quickBtn');if(b)b.click();return document.body.classList.contains('quick')}};
+})();
+</script>
+<style id="cssDirRowA">
+/* ===== DIRECTOR control row — 案A: group gaps + underlines =====
+   The four categories (transpose / temperament / octave / ops)
+   read as groups at a glance: a wider gap between groups and
+   a hairline under each one. The transpose line carries the
+   accent; the other three stay quiet. Button bodies, fonts and
+   heights are untouched — a few px of padding were rebalanced
+   so the wider gaps still fit the row on one line. */
+#hdRow{gap:11px !important}
+.hdGrp{position:relative;display:flex;align-items:center;gap:2px;padding-bottom:7px;flex:none}
+.hdGrp::after{content:"";position:absolute;left:2px;right:2px;bottom:0;height:2px;border-radius:2px;background:var(--line)}
+#hdGrpTr::after{background:rgb(var(--acrgb)/.55)}
+#hdTrans{gap:2px !important}
+#hdTrans .btn{padding:0 4px !important}
+#kbJustTgl{padding:0 5px !important}
+#hdtVal{min-width:34px !important}
+.kbHC{padding:0 2px !important}
+@media (max-width:370px){#hdRow{gap:7px !important}#hdTrans .btn{padding:0 3px !important}}
+</style>
+<script id="bDirRowA">
+(function(){
+'use strict';
+function el(id){return document.getElementById(id)}
+function wrap(){
+ var hr=el('hdRow');if(!hr||el('hdGrpTr'))return true;
+ var tr=el('hdTrans'),jt=el('kbJustTgl'),dn=el('hdtDn'),val=el('hdtVal'),up=el('hdtUp'),
+     hb=el('kbHold2'),cb=el('kbClear2');
+ if(!(tr&&jt&&dn&&val&&up&&hb&&cb))return false;
+ function grp(id,nodes){var d=document.createElement('div');d.className='hdGrp';d.id=id;
+  hr.insertBefore(d,nodes[0]);for(var i=0;i<nodes.length;i++)d.appendChild(nodes[i]);}
+ grp('hdGrpTr',[tr]);grp('hdGrpLaw',[jt]);grp('hdGrpOct',[dn,val,up]);grp('hdGrpOps',[hb,cb]);
+ return true;
+}
+if(!wrap()){var n=0;var t=setInterval(function(){if(wrap()||++n>24)clearInterval(t)},250)}
 })();
 </script>
 </body></html>
