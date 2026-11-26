@@ -1800,8 +1800,20 @@ function kbUnmute(midi){const v=kbVoices.get(midi);if(!v||!v.mut)return;v.mut=fa
  let wn=0;for(let m=48;m<=108;m++){if(W.includes(m%12)){wn++;continue}const d=document.createElement('div');d.className='bk';d.style.left=(wn*WW-WW*.31)+'%';d.style.width=(WW*.62)+'%';kb.appendChild(d);keyEls[m]=d}
  {const d=document.createElement('div');d.className='wk';d.innerHTML='<small>'+notes[72%12]+(Math.floor(72/12)-1)+(72%12==TONIC?' ●':'')+'</small>';kb.appendChild(d);kbDup[72]=d}
  {const d=document.createElement('div');d.className='wk';d.innerHTML='<small>'+notes[84%12]+(Math.floor(84/12)-1)+(84%12==TONIC?' ●':'')+'</small>';kb.appendChild(d);kbDup[84]=d}
- const wire=(m,el)=>{el.addEventListener('pointerdown',e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(err){}if(kbVoices.has(m))kbOff(m);else kbOn(m)});const up=e=>{if(!kbHold)kbMute(m)};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up)};
- Object.keys(keyEls).forEach(k=>wire(+k,keyEls[k]));Object.keys(kbDup).forEach(k=>wire(+k,kbDup[k]))}
+ /* KB-WEDGE FIX 2026-11-27: the mute on release lived only on the
+    key element itself. If pointer capture failed (its throw is
+    swallowed) and the finger lifted off the key, the mute never
+    ran and the voice rang on, selected and unmuted. Each press
+    now records its pointerId, and a window-level fallback ends
+    any press whose own element never saw the release; a window
+    blur ends every tracked press the same way. */
+ const kbPtrs={};
+ const wire=(m,el)=>{el.addEventListener('pointerdown',e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(err){}kbPtrs[e.pointerId]=m;if(kbVoices.has(m))kbOff(m);else kbOn(m)});const up=e=>{if(kbPtrs[e.pointerId]===m)delete kbPtrs[e.pointerId];if(!kbHold)kbMute(m)};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up)};
+ Object.keys(keyEls).forEach(k=>wire(+k,keyEls[k]));Object.keys(kbDup).forEach(k=>wire(+k,kbDup[k]));
+ const kbPtrEnd=e=>{const m=kbPtrs[e.pointerId];if(m==null)return;delete kbPtrs[e.pointerId];if(!kbHold)kbMute(m)};
+ window.addEventListener('pointerup',kbPtrEnd);
+ window.addEventListener('pointercancel',kbPtrEnd);
+ window.addEventListener('blur',()=>{Object.keys(kbPtrs).forEach(k=>{const m=kbPtrs[k];delete kbPtrs[k];if(!kbHold)kbMute(m)})})}
 $$('#kbTemp button').forEach(b=>b.onclick=()=>{kbMode=b.dataset.k;$$('#kbTemp button').forEach(x=>x.classList.toggle('act',x==b));kbInfo()});
 $('#kbHold').onclick=e=>{kbHold=!kbHold;e.currentTarget.textContent=kbHold?'HOLD ON':'HOLD OFF';e.currentTarget.classList.toggle('act',kbHold);if(!kbHold)[...kbVoices.keys()].forEach(m=>kbMute(m));else [...kbVoices.keys()].forEach(m=>kbUnmute(m))};
 $('#kbStop').onclick=()=>[...kbVoices.keys()].forEach(m=>kbOff(m));
@@ -2059,7 +2071,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 23:15';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 23:30';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -9649,8 +9661,23 @@ function pressStart(e){
  },560);
  return true}
 tkb.addEventListener('pointerdown',function(e){
- if(press)return;
- if(pressStart(e)){e.preventDefault();try{tkb.setPointerCapture(e.pointerId)}catch(err){}}});
+ /* KB-WEDGE FIX 2026-11-27: this strip keeps ONE gesture record,
+    and its only exits used to be pointerup/pointercancel on #tkb
+    itself. On a real phone the end event can fail to arrive —
+    pointer capture is requested only after pressStart and its
+    failure is swallowed, the keys are touch-action:pan-y (a
+    vertical move belongs to the page), the strip is 64px tall so
+    a finger easily lifts off it, and an OS interruption can eat
+    the touch outright. One lost end left `press` set forever and
+    every later tap died on the gate below: no light, no
+    selection, no sound, until reload. A fresh pointerdown
+    therefore supersedes a stale record (single-gesture engine:
+    the newest touch wins), and pressStart is guarded so a throw
+    can never leave a half-set record behind either. */
+ if(press)finishPress(press,true);
+ var ok=false;
+ try{ok=pressStart(e)}catch(err){press=null;ok=false}
+ if(ok){e.preventDefault();try{tkb.setPointerCapture(e.pointerId)}catch(err){}}});
 tkb.addEventListener('pointermove',function(e){
  var P=press;if(!P||P.swallow||e.pointerId!==P.pid)return;
  var now=performance.now(),dx=e.clientX-P.x0,dy=e.clientY-P.y0;
@@ -9663,18 +9690,32 @@ tkb.addEventListener('pointermove',function(e){
   if(vel>1.5)return; /* a flick is forming: stay silent */
   var el=keyAt(e.clientX,e.clientY);if(!el)return;
   var m=+el.dataset.m;if(m!==P.lastGliss){P.lastGliss=m;glissNote(m)}}});
-function pressEnd(e,cancelled){
- var P=press;if(!P||e.pointerId!==P.pid)return;
+function finishPress(P,cancelled,upX){
+ if(press!==P)return;
  press=null;
  if(P.timer){clearTimeout(P.timer);P.timer=null}
  if(P.el)P.el.classList.remove('down');
  if(P.swallow)return;
- var dur=performance.now()-P.t0,dx=e.clientX-P.x0;
+ var dur=performance.now()-P.t0,dx=(upX==null?P.x0:upX)-P.x0;
  if(!cancelled&&dur<320&&Math.abs(dx)>=80)shiftOctave(dx<0?1:-1);
  if(P.long)return; /* the drone keeps sounding */
  if(!hold)vOff(P.sm)}
+function pressEnd(e,cancelled){
+ var P=press;if(!P||e.pointerId!==P.pid)return;
+ finishPress(P,cancelled,e.clientX)}
 tkb.addEventListener('pointerup',function(e){pressEnd(e,false)});
 tkb.addEventListener('pointercancel',function(e){pressEnd(e,true)});
+/* KB-WEDGE FIX 2026-11-27: the same end, seen from anywhere. A
+   pointerup that lands outside the strip still bubbles to the
+   window, so the gesture ends there too; capture loss, window
+   blur and the page hiding (call, app switch, system gesture)
+   end it as a cancel. Normal releases are unaffected: #tkb's own
+   handlers run first and these find nothing left to do. */
+window.addEventListener('pointerup',function(e){pressEnd(e,false)});
+window.addEventListener('pointercancel',function(e){pressEnd(e,true)});
+tkb.addEventListener('lostpointercapture',function(){if(press)finishPress(press,true)});
+window.addEventListener('blur',function(){if(press)finishPress(press,true)});
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'&&press)finishPress(press,true)});
 var liveM=null;
 setInterval(function(){
  var g=null,lv=0;
@@ -14742,7 +14783,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2315 (the sync step sets
+   master: sonora-20261122-2330 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
