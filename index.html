@@ -2100,7 +2100,7 @@ if(t4){const cs=t4.querySelectorAll(':scope>.card');if(cs[0]&&cs[1]){const rc=cs
 const ct=document.querySelector('#t1 .ct');if(ct){const wl=[...document.querySelectorAll('#t1 .lab')].find(l=>l.textContent.indexOf('ZERO-CROSS')>=0);if(wl){ct.style.cssText='font-size:11px;color:var(--mut)';wl.appendChild(ct)}}
 const t4b=document.querySelector('#t4');
 if(t4b){const cs=t4b.querySelectorAll(':scope>.card');if(cs[1]&&cs[2]){const mic=cs[2];const div=document.createElement('div');div.style.cssText='border-top:1px solid rgba(160,180,200,.14);margin-top:8px;padding-top:8px';[...mic.children].forEach(n=>div.appendChild(n));cs[1].appendChild(div);mic.remove()}}
-const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-22 23:45';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
+const t4c=document.querySelector('#t4');if(t4c){const bs=document.createElement('div');bs.style.cssText='text-align:center;font-size:9.5px;color:var(--mut);margin-top:10px;letter-spacing:.12em';bs.textContent='SONORA INTELLIGENCE · BUILD 2026-11-23 00:00';t4c.appendChild(bs);const stg=document.createElement('div');stg.style.cssText='text-align:center;font-size:9px;font-weight:300;color:var(--mut);letter-spacing:.22em;margin-top:5px';stg.textContent="Don't be the same. Come together.";t4c.appendChild(stg)}
 const kbT=document.querySelector('#kbTemp'),kbH=document.querySelector('#kbHold');
 if(kbT&&kbH){kbT.insertAdjacentElement('afterend',kbH);kbH.style.cssText='width:100%;height:34px;margin-top:6px'}
 const srcs=document.querySelector('#srcs'),t4d=document.querySelector('#t4');
@@ -2443,7 +2443,13 @@ var T = {
   pulse:['SYNC PULSE','全員シンク・パルス'],
   pulseStart:['START PULSE','パルス開始'], pulseStop:['STOP PULSE','パルス停止'],
   pulseHint:['The beat arrives as light (and vibration where supported) — no click sound, to avoid delay.','拍は光（対応端末では振動）で届きます。遅延を避けるため音は出しません。'],
-  pulseOn:['PULSE','パルス中']
+  pulseOn:['PULSE','パルス中'],
+  mshare:['METRO SHARE','メトロノーム共有'],
+  mshareStart:['SHARE METRO','共有する'], mshareStop:['STOP SHARE','共有をやめる'],
+  mshareOn:['SHARING','共有中'],
+  mshareHint:["Everyone follows this device's metronome — tempo, beats and sound.",'全員がこの端末のメトロノームに追随します（テンポ・拍子・音色）'],
+  msync:['LINK SYNC','LINK 同期中'],
+  mwait:['LINK — waiting for start','LINK — 開始待ち']
 };
 function tx(k){return T[k][L==='jp'?1:0]}
 var BROKER='wss://broker.emqx.io:8084/mqtt';
@@ -2527,6 +2533,7 @@ sec.innerHTML='<div class="card glass"><div class="lab" data-k="link">ENSEMBLE L
 +'<div class="hint" id="lkStat" style="margin-top:7px"></div>'
 +'<div class="hint" data-k="childHint" style="margin-top:3px"></div>'
 +'<div id="lkPulseBox" style="display:none;margin-top:9px;align-items:center;gap:10px"><div id="lkPulseDot" style="width:26px;height:26px;border-radius:50%;background:#25324a;flex:none"></div><div class="hint" id="lkPulseTxt" style="margin:0"></div></div>'
++'<div id="lkMsBox" style="display:none;margin-top:9px;align-items:center;gap:10px"><div style="width:26px;height:26px;border-radius:50%;background:#25324a;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ac)">♪</div><div class="hint" id="lkMsTxt" style="margin:0"></div></div>'
 +'</div>'
 +'<div id="lkParent" style="display:none">'
 +'<div class="hint" data-k="showRoom"></div><div id="lkRoomBig">------</div>'
@@ -2540,6 +2547,10 @@ sec.innerHTML='<div class="card glass"><div class="lab" data-k="link">ENSEMBLE L
 +'<div style="display:flex;gap:7px;align-items:center;margin-top:5px"><button class="btn sm" id="lkPlDn" style="flex:none;width:38px;padding:0">−</button><div id="lkPlBpm" style="flex:1;text-align:center;font-size:19px;font-weight:800">120 <small style="font-size:10px;color:var(--mut)">BPM</small></div><button class="btn sm" id="lkPlUp" style="flex:none;width:38px;padding:0">＋</button>'
 +'<button class="btn sm" id="lkPlBtn" style="flex:1.2"></button></div>'
 +'<div class="hint" data-k="pulseHint" style="margin-top:5px"></div></div>'
++'<div style="border-top:1px solid rgba(160,180,200,.14);margin-top:10px;padding-top:9px">'
++'<div class="hint" data-k="mshare" style="margin:0"></div>'
++'<div style="display:flex;gap:7px;align-items:center;margin-top:5px"><button class="btn sm" id="lkMsBtn" style="flex:1"></button><div class="hint" id="lkMsStat" style="margin:0"></div></div>'
++'<div class="hint" data-k="mshareHint" style="margin-top:5px"></div></div>'
 +'<div class="seg" style="margin-top:9px"><button id="lkViewW" class="on"></button><button id="lkViewO"></button></div>'
 +'<div class="hint" id="lkStatP" style="margin-top:7px"></div>'
 +'</div></div>'
@@ -2573,12 +2584,14 @@ function applyLang(){
   $i('lkNewRoom').textContent=tx('newRoom'); $i('lkSendA').textContent=tx('sendA');
   $i('lkUseMed').textContent=tx('useMed');
   if(typeof pulseUi==='function')pulseUi();
+  if(typeof msUi==='function')msUi();
   $i('lkViewW').textContent=tx('wall'); $i('lkViewO').textContent=tx('overlay');
 }
 applyLang();
 var lb=document.getElementById('langBtn'); if(lb)lb.addEventListener('click',function(){setTimeout(applyLang,460)});
 
 function setMode(m){
+  if(m==='parent')msExit();
   mode=m;
   $i('lkModeC').classList.toggle('on',m==='child'); $i('lkModeP').classList.toggle('on',m==='parent');
   $i('lkChild').style.display=m==='child'?'':'none';
@@ -2599,7 +2612,7 @@ function curData(){
   return {n:$i('lkName').value.trim()||'—', m:m, c:c, l:l, a:a};
 }
 $i('lkJoin').onclick=function(){
-  if(joined){ joined=false; clearInterval(sendT); pulseStop(); if(mq)mq.close(); mq=null; $i('lkJoin').textContent=tx('join'); $i('lkStat').textContent=''; return; }
+  if(joined){ joined=false; clearInterval(sendT); pulseStop(); msExit(); if(mq)mq.close(); mq=null; $i('lkJoin').textContent=tx('join'); $i('lkStat').textContent=''; return; }
   room=($i('lkRoom').value||'').trim().toUpperCase();
   if(room.length<4){ $i('lkStat').textContent=tx('needRoom'); return; }
   lsSet('sonora_room',room); lsSet('sonora_name',$i('lkName').value.trim());
@@ -2610,10 +2623,12 @@ $i('lkJoin').onclick=function(){
   mq.onmsg=function(topic,payload){
     if(topic.slice(-4)==='/ref'){ try{ var j=JSON.parse(payload); var ra=(j&&typeof j==='object')?Number(j.a):NaN; if(isFinite(ra)&&ra>=430&&ra<=450&&typeof setRef==='function'){ setRef(ra); $i('lkStat').textContent=tx('gotA')+' A='+ra.toFixed(1); } }catch(e){} }
     if(topic.slice(-6)==='/pulse'){ try{ var p=JSON.parse(payload); if(p.on)pulseStart(p.bpm||120,p.t0||Date.now()); else pulseStop(); }catch(e){} }
+    if(topic.slice(-6)==='/metro'){ try{ msOnMsg(JSON.parse(payload)); }catch(e){} }
   };
   mq.connect();
   mq.subscribe('sonora1/'+room+'/ref');
   mq.subscribe('sonora1/'+room+'/pulse');
+  mq.subscribe('sonora1/'+room+'/metro');
   setTimeout(function(){ if(joined&&mq&&!mq.ok)$i('lkStat').textContent=tx('still'); },4200);
   setTimeout(function(){ if(joined&&mq&&!mq.ok)$i('lkStat').textContent=tx('blocked'); },12500);
   joined=true; $i('lkJoin').textContent=tx('leave');
@@ -2654,7 +2669,7 @@ function startParent(){
   setTimeout(function(){ if(mode==='parent'&&mq&&!mq.ok)$i('lkStatP').textContent=tx('still'); },4200);
   setTimeout(function(){ if(mode==='parent'&&mq&&!mq.ok)$i('lkStatP').textContent=tx('blocked'); },12500);
 }
-function stopParent(){ pulseStop(); if(mode!=='parent'&&mq&&!joined){ mq.close(); mq=null; } kids.clear(); $i('lkGrid').innerHTML=''; }
+function stopParent(){ pulseStop(); if(msShare){ if(mq)mq.publish('sonora1/'+room+'/metro', JSON.stringify({share:false})); msShare=false; if(msPubT)clearInterval(msPubT); msPubT=null; msUi(); } if(mode!=='parent'&&mq&&!joined){ mq.close(); mq=null; } kids.clear(); $i('lkGrid').innerHTML=''; }
 $i('lkNewRoom').onclick=function(){ lsSet('sonora_proom',genRoom()); if(mq){mq.close();mq=null;} kids.clear(); $i('lkGrid').innerHTML=''; startParent(); };
 $i('lkSendA').onclick=function(){ if(mq)mq.publish('sonora1/'+room+'/ref', JSON.stringify({a:A4}), true); $i('lkStatP').textContent='A = '+A4+' Hz'; };
 
@@ -2716,6 +2731,157 @@ $i('lkPlBtn').onclick=function(){
   else plSend();
 };
 plShow(); pulseUi();
+
+/* ---- METRO SHARE: the parent's metronome, followed by every child ----
+   The parent publishes its metronome state on /metro: tempo, beats,
+   pattern, subdivision, sound, and — while playing — a grid anchor
+   (the wall-clock time of its next unscheduled beat, with that
+   beat's bar/beat position). A child rebuilds the same beat grid
+   from the anchor, starts its own engine on the grid, and keeps
+   pulling its next-beat time onto the grid; the parent re-publishes
+   every 2 s, so drift is corrected continuously and late joiners
+   catch up within one re-publish. Everything arriving over the
+   public broker is validated the same way as /ref and /pulse:
+   bpm clamped to 30-240, non-numeric state dropped, pattern cells
+   clamped — a crafted message can at worst be ignored. */
+var msShare=false, msSig='', msPubT=null, msLastPub=0;
+function msSigOf(){ return [M.on?1:0,M.bpm,M.beats,M.mode,String(M.sub),MSOUND,PAT.join(',')].join('|'); }
+function msPublish(){
+  if(!mq||mode!=='parent'||!msShare)return;
+  if(!mq.ok){ msSig=''; return; }
+  var msg={share:true,on:!!M.on,bpm:M.bpm,beats:M.beats,mode:M.mode,sub:String(M.sub),snd:MSOUND,pat:PAT.slice(0,16)};
+  if(M.on&&typeof ac!=='undefined'&&ac){
+    msg.wallT=Math.round(Date.now()+(M.nextT-ac.currentTime)*1000);
+    msg.bar=M.bar|0; msg.cur=M.cur|0;
+  }
+  mq.publish('sonora1/'+room+'/metro', JSON.stringify(msg));
+  msSig=msSigOf(); msLastPub=Date.now();
+}
+function msWatch(){ if(msShare&&(msSigOf()!==msSig||Date.now()-msLastPub>2000))msPublish(); }
+function msShareSet(v){
+  if(v===msShare){ msUi(); return; }
+  msShare=v;
+  if(v){ msSig=''; msPublish(); if(msPubT)clearInterval(msPubT); msPubT=setInterval(msWatch,200); }
+  else{ if(mq&&mode==='parent')mq.publish('sonora1/'+room+'/metro', JSON.stringify({share:false})); if(msPubT)clearInterval(msPubT); msPubT=null; }
+  msUi();
+}
+$i('lkMsBtn').onclick=function(){ msShareSet(!msShare); };
+
+var lkF={on:false,playing:false,own:null,st:null,timer:null,lastMsg:0,amb:0};
+function msValidate(j){
+  if(!j||typeof j!=='object')return null;
+  if(j.share===false)return {off:true};
+  if(j.share!==true)return null;
+  var bpm=Number(j.bpm); if(!isFinite(bpm))return null;
+  bpm=Math.min(240,Math.max(30,Math.round(bpm)));
+  var beats=Number(j.beats); if(!isFinite(beats))beats=4;
+  beats=Math.min(16,Math.max(1,Math.round(beats)));
+  var pat=[]; for(var i=0;i<16;i++){ var pv=(j.pat&&typeof j.pat==='object')?Number(j.pat[i]):NaN; if(!isFinite(pv))pv=4; pat.push(Math.min(16,Math.max(1,Math.round(pv)))); }
+  var on=j.on===true, wallT=Number(j.wallT), bar=Number(j.bar), cur=Number(j.cur);
+  if(on){
+    if(!isFinite(wallT)||wallT<=0)return null;
+    if(!isFinite(bar))bar=0; if(!isFinite(cur))cur=0;
+    bar=Math.min(15,Math.max(0,Math.round(bar))); cur=Math.min(64,Math.max(0,Math.round(cur)));
+  }
+  return {bpm:bpm,beats:beats,mode:(j.mode==='pattern')?'pattern':'single',
+    sub:(typeof SUBD!=='undefined'&&SUBD[String(j.sub)])?String(j.sub):'1',
+    snd:(['click','mech','cajon','luxun'].indexOf(j.snd)>=0)?j.snd:'click',
+    pat:pat,on:on,wallT:wallT,bar:bar,cur:cur};
+}
+function msCycle(st){ if(st.mode!=='pattern')return st.beats; var s=0; for(var i=0;i<16;i++)s+=st.pat[i]; return s; }
+function msEncode(st,bar,cur){ if(st.mode!=='pattern')return cur; var s=0,b=Math.min(15,Math.max(0,bar|0)); for(var i=0;i<b;i++)s+=st.pat[i]; return s+cur; }
+function msDecode(st,g){ var cyc=msCycle(st); var gg=((g%cyc)+cyc)%cyc; if(st.mode!=='pattern')return {bar:0,cur:gg}; var bar=0; while(bar<15&&gg>=st.pat[bar]){ gg-=st.pat[bar]; bar++; } return {bar:bar,cur:gg}; }
+function msApplyParams(st){
+  if(M.bpm!==st.bpm)mSet(st.bpm);
+  var pd=false; for(var i=0;i<16;i++){ if(PAT[i]!==st.pat[i]){ PAT[i]=st.pat[i]; pd=true; } }
+  if(pd&&typeof pBuild==='function')pBuild();
+  var dirty=false;
+  if(M.mode!==st.mode){
+    M.mode=st.mode;
+    var mb=document.querySelector('#mmode button');
+    if(mb){ mb.dataset.m=M.mode; mb.textContent=M.mode==='pattern'?'PATTERN':'SINGLE'; mb.classList.add('act'); }
+    var pw=document.getElementById('pwrap'); if(pw)pw.hidden=M.mode!=='pattern';
+    dirty=true;
+  }
+  if(M.beats!==st.beats){ M.beats=st.beats; if(typeof mbShow==='function')mbShow(); dirty=true; }
+  if(String(M.sub)!==st.sub){ M.sub=st.sub; $$('#msub button').forEach(function(x){x.classList.toggle('act',x.dataset.s===st.sub)}); }
+  if(MSOUND!==st.snd){ MSOUND=st.snd; $$('#msound button').forEach(function(x){x.classList.toggle('act',x.dataset.ms===st.snd)}); }
+  if(dirty)mDots(M.mode==='pattern'?PAT[M.bar]:undefined);
+}
+function msOnMsg(j){
+  var st=msValidate(j);
+  if(!st)return;
+  if(st.off){ msExit(); return; }
+  lkF.lastMsg=Date.now();
+  if(!lkF.on){
+    lkF.on=true;
+    lkF.own={bpm:M.bpm,beats:M.beats,mode:M.mode,sub:String(M.sub),snd:MSOUND,pat:PAT.slice(0,16)};
+    lkF.timer=setInterval(msTick,40);
+  }
+  lkF.st=st;
+  msApplyParams(st);
+  msUi();
+}
+function msTick(){
+  if(!lkF.on)return;
+  if(Date.now()-lkF.lastMsg>15000){ msExit(); return; }
+  var st=lkF.st; if(!st)return;
+  if(!st.on){ if(M.on&&lkF.playing)mStop(); lkF.playing=false; return; }
+  var spb=60000/st.bpm, now=Date.now();
+  var g0=msEncode(st,st.bar,st.cur);
+  if(!M.on){
+    var gNext=Math.floor(g0+(now-st.wallT)/spb)+1;
+    var wallNext=st.wallT+(gNext-g0)*spb;
+    if(wallNext-now<25){ gNext++; wallNext+=spb; }
+    var pos=msDecode(st,gNext);
+    msApplyParams(st);
+    mStart();
+    M.cur=pos.cur; M.bar=pos.bar;
+    M.nextT=ac.currentTime+Math.max(0.01,(wallNext-now)/1000);
+    if(M.mode==='pattern')mDots(PAT[M.bar]);
+    lkF.playing=true; msUi();
+    return;
+  }
+  lkF.playing=true;
+  /* M.nextT is the next UNSCHEDULED beat: align that beat to the
+     nearest grid beat. Already-scheduled beats are never touched,
+     so a correction can never double or drop a click. When nextT
+     sits midway between two grid points the read is ambiguous
+     (the scheduler may have advanced between the two clock reads):
+     leave the engine's own count alone this tick rather than risk
+     relabelling a beat — unless it stays ambiguous, which means
+     the engine really is half a beat off the grid. */
+  var wallNT=now+(M.nextT-ac.currentTime)*1000;
+  var fr=(wallNT-st.wallT)/spb, frp=fr-Math.floor(fr);
+  if(frp>0.28&&frp<0.72){ if(++lkF.amb<40)return; }
+  lkF.amb=0;
+  var gT=g0+Math.round((wallNT-st.wallT)/spb);
+  var ideal=ac.currentTime+(st.wallT+(gT-g0)*spb-now)/1000;
+  var err=ideal-M.nextT, mx=spb/1000*0.3;
+  if(Math.abs(err)>0.02)M.nextT+=Math.max(-mx,Math.min(mx,err));
+  var posT=msDecode(st,gT);
+  if(M.cur!==posT.cur||M.bar!==posT.bar){ M.cur=posT.cur; M.bar=posT.bar; if(M.mode==='pattern')mDots(PAT[M.bar]); }
+}
+function msExit(){
+  if(!lkF.on)return;
+  lkF.on=false; lkF.st=null;
+  if(lkF.timer)clearInterval(lkF.timer); lkF.timer=null;
+  if(lkF.playing&&M.on)mStop();
+  lkF.playing=false;
+  if(lkF.own){ msApplyParams(lkF.own); lkF.own=null; }
+  msUi();
+}
+function msUi(){
+  if(typeof lkF==='undefined'||!lkF)return;
+  var btn=$i('lkMsBtn'); if(btn)btn.textContent=msShare?tx('mshareStop'):tx('mshareStart');
+  var ps=$i('lkMsStat'); if(ps)ps.textContent=msShare?tx('mshareOn'):'';
+  var box=$i('lkMsBox'); if(box)box.style.display=lkF.on?'flex':'none';
+  var txt=$i('lkMsTxt'); if(txt&&lkF.st)txt.textContent=(lkF.st.on?tx('msync'):tx('mwait'))+' · '+lkF.st.bpm+' BPM';
+  var tag=document.getElementById('lkMsTag'); if(tag)tag.style.display=lkF.on?'':'none';
+}
+(function(){ var g=document.getElementById('msound'); if(g&&!document.getElementById('lkMsTag')){ var s=document.createElement('span'); s.id='lkMsTag'; s.textContent='LINK'; s.style.cssText='display:none;font:600 10px/1 Inter,sans-serif;letter-spacing:.05em;color:var(--ac);text-shadow:0 0 9px rgb(var(--acrgb)/.6);padding:7px 3px'; g.appendChild(s); } })();
+msUi();
+
 $i('lkViewW').onclick=function(){ view='wall'; $i('lkViewW').classList.add('on'); $i('lkViewO').classList.remove('on'); $i('lkGrid').style.display=''; $i('lkOver').style.display='none'; };
 $i('lkViewO').onclick=function(){ view='overlay'; $i('lkViewO').classList.add('on'); $i('lkViewW').classList.remove('on'); $i('lkGrid').style.display='none'; $i('lkOver').style.display=''; };
 
@@ -2893,7 +3059,7 @@ setInterval(function(){
     }
   }
 },350);
-  window.__lkTest={live:function(){return !!joined},kids:kids,setMode:setMode,setView:function(v){view=v;$i('lkViewW').classList.toggle('on',v==='wall');$i('lkViewO').classList.toggle('on',v==='overlay');$i('lkGrid').style.display=v==='wall'?'':'none';$i('lkOver').style.display=v==='overlay'?'':'none';},pulseStart:pulseStart,pulseStop:pulseStop,pulseState:function(){return{on:pulse.on,bpm:pulse.bpm,t0:pulse.t0,beat:pulse.beat}},medA:function(){return groupMedA},useMed:function(){$i('lkUseMed').click()},plSend:plSend,setPlBpm:function(v){plBpm=v;plShow()},meteor:function(){return{session:metSession,total:metStore.total,fired:metFired,anim:metAnim}}};
+  window.__lkTest={live:function(){return !!joined},kids:kids,setMode:setMode,setView:function(v){view=v;$i('lkViewW').classList.toggle('on',v==='wall');$i('lkViewO').classList.toggle('on',v==='overlay');$i('lkGrid').style.display=v==='wall'?'':'none';$i('lkOver').style.display=v==='overlay'?'':'none';},pulseStart:pulseStart,pulseStop:pulseStop,pulseState:function(){return{on:pulse.on,bpm:pulse.bpm,t0:pulse.t0,beat:pulse.beat}},medA:function(){return groupMedA},useMed:function(){$i('lkUseMed').click()},plSend:plSend,setPlBpm:function(v){plBpm=v;plShow()},meteor:function(){return{session:metSession,total:metStore.total,fired:metFired,anim:metAnim}},metro:{share:function(){return msShare},setShare:function(v){msShareSet(!!v)},publish:msPublish,follow:function(){return{on:lkF.on,playing:lkF.playing,st:lkF.st,own:lkF.own}},exit:msExit,state:function(){return{on:M.on,bpm:M.bpm,beats:M.beats,mode:M.mode,sub:String(M.sub),snd:MSOUND,cur:M.cur,bar:M.bar,nextT:M.nextT,acT:(typeof ac!=='undefined'&&ac)?ac.currentTime:null}}}};
 })();
 </script>
 <style>
@@ -14812,7 +14978,7 @@ window.__micAuto={get armed(){return armed},get pending(){return pending}};
        The safety rules are unchanged: what stays
        unclear is not executed.
    The sw cache for this build is designated here, in
-   master: sonora-20261122-2345 (the sync step sets
+   master: sonora-20261123-0000 (the sync step sets
    deploy/sw.js to it; this build does not touch it). */
 .card:has(#embMovedNote){display:none!important}
 #t7{position:relative}
