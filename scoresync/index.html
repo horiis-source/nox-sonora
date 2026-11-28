@@ -22,8 +22,8 @@
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <!-- PeerJS (WebRTC P2P通信) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <!-- QRCode.js (ペアリング用QRコード生成) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- qrcode-generator (ペアリング用QRコード生成・同期生成で確実に描画) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 
   <style>
     :root {
@@ -1763,47 +1763,36 @@
     }
 
     function renderScannableQrCode(code) {
-      els.qrcodeContainer.innerHTML = '';
-      if (!window.QRCode) {
-        els.qrcodeContainer.innerHTML = `<span class="text-xs font-bold text-slate-900">番号: ${code}</span>`;
-        return;
-      }
-
-      // 短いクエリ (?r=XXXX) でドット密度を下げ、十分な余白と大きめのサイズで生成
       const shortPayload = buildShortRoomUrl(code);
       const displaySize = 240;
+      els.qrcodeContainer.innerHTML = '';
 
-      try {
-        const tempHolder = document.createElement('div');
-        new QRCode(tempHolder, {
-          text: shortPayload,
-          width: displaySize,
-          height: displaySize,
-          colorDark: '#000000',
-          colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.L
-        });
-
-        setTimeout(() => {
-          const srcCanvas = tempHolder.querySelector('canvas');
-          const srcImg = tempHolder.querySelector('img');
-          els.qrcodeContainer.innerHTML = '';
-
-          if (srcCanvas) {
-            srcCanvas.style.width = `${displaySize}px`;
-            srcCanvas.style.height = `${displaySize}px`;
-            srcCanvas.style.imageRendering = 'pixelated';
-            els.qrcodeContainer.appendChild(srcCanvas);
-          } else if (srcImg) {
-            srcImg.style.width = `${displaySize}px`;
-            srcImg.style.height = `${displaySize}px`;
-            srcImg.style.imageRendering = 'pixelated';
-            els.qrcodeContainer.appendChild(srcImg);
+      // qrcode-generator: 同期生成で画像タグを直接作る（旧QRCode.jsの非同期受け渡しで白紙になる不具合の置換）
+      if (typeof window.qrcode === 'function') {
+        try {
+          const qr = window.qrcode(0, 'L');
+          qr.addData(shortPayload);
+          qr.make();
+          const moduleCount = qr.getModuleCount();
+          const cellSize = Math.max(2, Math.floor(displaySize / (moduleCount + 4)));
+          const holder = document.createElement('div');
+          holder.innerHTML = qr.createImgTag(cellSize, cellSize * 4, '右ページ接続用QRコード');
+          const img = holder.querySelector('img');
+          if (img) {
+            img.style.width = `${displaySize}px`;
+            img.style.height = `${displaySize}px`;
+            img.style.imageRendering = 'pixelated';
+            img.style.display = 'block';
+            els.qrcodeContainer.appendChild(img);
+            return;
           }
-        }, 0);
-      } catch (err) {
-        console.warn('QRコード生成エラー:', err);
+        } catch (err) {
+          console.warn('QRコード生成エラー:', err);
+        }
       }
+
+      // フォールバック: QRが作れない時は番号とURLを文字で出す（白紙にしない）
+      els.qrcodeContainer.innerHTML = `<div class="text-center px-3"><div class="text-xs font-bold text-slate-900 mb-1">番号: ${code}</div><div class="text-[10px] text-slate-600 break-all">${shortPayload}</div></div>`;
     }
 
     function initHostPeer() {
@@ -1812,7 +1801,7 @@
         return;
       }
       destroyPeer();
-      state.roomCode = generateRoomCode();
+      if (!state.roomCode) state.roomCode = generateRoomCode();
       els.displayRoomCode.textContent = state.roomCode;
       updateConnectionUI(false, `ルーム ${state.roomCode} 待機中`);
       renderScannableQrCode(state.roomCode);
@@ -2082,6 +2071,7 @@
       setLoading(false);
       state.pdfDoc = null;
       state.role = null;
+      state.roomCode = '';
       els.viewerScreen.classList.add('hidden');
       els.viewerScreen.classList.remove('flex');
       els.setupScreen.classList.remove('hidden');
