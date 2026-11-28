@@ -1,0 +1,2539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ScoreSync" />
+  <meta name="theme-color" content="#050810" />
+  <title>ScoreSync Stage Pro - 2台見開き楽譜ビューアー</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet" />
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- pdf-lib (サンプル吹奏楽スコア自動生成用) -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <!-- PeerJS (WebRTC P2P通信) -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- QRCode.js (ペアリング用QRコード生成) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    html, body {
+      font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #050810;
+      color: #f3f4f6;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* オーバーレイの滑らかなフェード＆スケールトランジション */
+    .overlay-panel {
+      transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .overlay-hidden {
+      opacity: 0;
+      transform: scale(0.985);
+      pointer-events: none;
+    }
+    .overlay-visible {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    /* ステージ暗転モード（白背景の楽譜を黒背景・白音符へ反転） */
+    .night-score-filter {
+      filter: invert(0.92) hue-rotate(180deg) contrast(1.08);
+    }
+
+    /* 楽譜表示中は余白を最小限にして画面のほぼ100%をスコアに充てる */
+    .fullscreen-score-canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    /* ページめくりトランジション */
+    @keyframes pageTurnFlash {
+      0% { opacity: 0.78; transform: scale(0.994); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .page-turn-anim {
+      animation: pageTurnFlash 160ms ease-out;
+    }
+
+    /* 控えめで確実なページめくり方向フィードバック */
+    @keyframes edgePulse {
+      0% { opacity: 0; }
+      35% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .edge-pulse-active {
+      animation: edgePulse 260ms ease-out forwards;
+    }
+
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.7);
+    }
+
+    /* === SONORA INTELLIGENCE texture === */
+    .metal-title{
+      background:linear-gradient(180deg,#f8fafc 0%,#e2e8f0 30%,#94a3b8 52%,#f1f5f9 72%,#64748b 100%);
+      -webkit-background-clip:text;background-clip:text;color:transparent;
+      letter-spacing:-0.02em;
+    }
+    .btn-gloss{
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -10px 18px rgba(0,0,0,.28),0 4px 16px rgba(0,0,0,.38) !important;
+      border:1px solid rgba(182,255,46,.35) !important;
+    }
+    .btn-dark-gloss{
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.10),inset 0 -8px 14px rgba(0,0,0,.35),0 2px 10px rgba(0,0,0,.30) !important;
+      background:linear-gradient(180deg,#111a2e,#0a0f1e) !important;
+      border-color:rgba(226,232,240,.14) !important;
+    }
+    .sonora-panel{
+      background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0) 42%),#0a0f1e !important;
+      border-color:rgba(226,232,240,.10) !important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 30px rgba(0,0,0,.35) !important;
+    }
+    .fireflies{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+    .fireflies i{position:absolute;display:block;width:4px;height:4px;border-radius:9999px;background:#b6ff2e;box-shadow:0 0 8px 2px rgba(182,255,46,.55);opacity:.15;animation:ffDrift 9s ease-in-out infinite alternate,ffBlink 3.4s ease-in-out infinite}
+    @keyframes ffDrift{from{transform:translate(0,0)}to{transform:translate(18px,-26px)}}
+    @keyframes ffBlink{0%,100%{opacity:.08}45%{opacity:.95}60%{opacity:.25}}
+    .logo-disc{position:relative;overflow:hidden;background:radial-gradient(circle at 35% 30%,#16233f,#0a0f1e 68%) !important;border-color:rgba(182,255,46,.35) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 0 18px rgba(182,255,46,.12)}
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col select-none bg-[#050810] text-slate-100">
+
+  <!-- ==================== ドラッグ＆ドロップ オーバーレイ ==================== -->
+  <div id="dropZoneOverlay" class="fixed inset-0 z-50 bg-lime-500/15 backdrop-blur-md border-4 border-dashed border-lime-400 hidden flex-col items-center justify-center p-6 text-center pointer-events-none">
+    <div class="bg-[#0a0f1e] border border-lime-500/40 rounded-3xl p-8 shadow-2xl max-w-sm">
+      <svg class="w-12 h-12 text-lime-400 mx-auto mb-3 animate-bounce" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      </svg>
+      <p class="text-base font-bold text-white">ここにPDFスコアをドロップ</p>
+      <p class="text-xs text-slate-400 mt-1">左ページ（親機）としてすぐに開きます</p>
+    </div>
+  </div>
+
+  <!-- ==================== 初期セットアップ画面 ==================== -->
+  <div id="setupScreen" class="fixed inset-0 z-40 bg-[#050810] overflow-y-auto flex flex-col items-center justify-between p-4 sm:p-6"
+    style="padding-top: calc(1rem + var(--safe-top)); padding-bottom: calc(1rem + var(--safe-bottom)); padding-left: calc(1rem + var(--safe-left)); padding-right: calc(1rem + var(--safe-right));">
+
+
+    <div class="fireflies" aria-hidden="true"><i style="left:8%;top:18%;animation-delay:0s"></i><i style="left:18%;top:64%;animation-delay:.7s;width:3px;height:3px"></i><i style="left:32%;top:12%;animation-delay:1.3s"></i><i style="left:47%;top:78%;animation-delay:.4s;width:3px;height:3px"></i><i style="left:58%;top:22%;animation-delay:1.9s"></i><i style="left:71%;top:58%;animation-delay:1.1s;width:3px;height:3px"></i><i style="left:84%;top:16%;animation-delay:2.4s"></i><i style="left:92%;top:70%;animation-delay:.9s;width:3px;height:3px"></i><i style="left:12%;top:38%;animation-delay:2.8s;width:3px;height:3px"></i><i style="left:66%;top:84%;animation-delay:1.6s"></i><i style="left:40%;top:44%;animation-delay:3.1s;width:3px;height:3px"></i><i style="left:88%;top:42%;animation-delay:.2s"></i></div>
+    <!-- ヘッダー -->
+    <header class="relative z-10 w-full max-w-4xl flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800/90">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="logo-disc w-11 h-11 rounded-2xl bg-lime-500/12 border border-lime-500/30 flex items-center justify-center text-lime-400 shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="metal-title text-lg sm:text-xl font-extrabold tracking-tight truncate">ScoreSync</h1>
+            <span class="text-[10px] font-bold tracking-wider text-lime-300 px-2 py-0.5 rounded-full bg-lime-500/15 border border-lime-500/30 shrink-0">DUAL SPREAD</span>
+          </div>
+          <p class="text-xs text-slate-400 truncate">2台のスマホで楽譜PDFを左右見開き・リアルタイム同期</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="btnDemoSplit" type="button" class="btn-dark-gloss min-h-[44px] px-3.5 py-2 rounded-full bg-slate-800/90 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+          <span>1台で見開きテスト</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- メイン3アクション -->
+    <main class="relative z-10 w-full max-w-4xl my-auto py-2 space-y-3">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- アクション1: 左ページで始める（親機） -->
+        <section class="sonora-panel bg-[#0a0f1e] border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 rounded-lg bg-lime-500/15 text-lime-300 text-xs font-bold border border-lime-500/25">1. 左ページで始める</span>
+              <span class="text-[11px] text-slate-400">親機・ホスト</span>
+            </div>
+            <h2 class="text-base font-bold text-white mb-1">スコアを開いて配信</h2>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              PDFを選び、右ページ端末用のQRコードまたは4桁番号を発行します。
+            </p>
+
+            <label for="pdfFileInput" id="pdfDropLabel" class="w-full min-h-[88px] cursor-pointer flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-700 hover:border-lime-400/70 rounded-xl bg-slate-900/60 hover:bg-slate-800/60 transition group mb-2.5">
+              <svg class="w-6 h-6 text-slate-400 group-hover:text-lime-400 mb-1 transition" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span id="selectedFileName" class="text-xs font-bold text-slate-200 group-hover:text-white text-center truncate max-w-full">PDFファイルを選択</span>
+              <span class="text-[10px] text-slate-500 mt-0.5">ファイル・iCloud・ブック保存分から選択</span>
+            </label>
+            <input type="file" id="pdfFileInput" accept="application/pdf,.pdf" class="sr-only" />
+
+            <button id="btnStartSampleHost" type="button" class="w-full min-h-[44px] py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-300 border border-slate-700/80 transition mb-3">
+              サンプル吹奏楽スコア（8P）で開始
+            </button>
+          </div>
+
+          <button id="btnLaunchHost" type="button" disabled class="btn-gloss w-full min-h-[46px] py-3 rounded-full bg-lime-400 hover:bg-lime-300 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-extrabold text-sm transition">
+            左ページとして開始
+          </button>
+        </section>
+
+        <!-- アクション2: 右ページでつなぐ（子機） -->
+        <section class="sonora-panel bg-[#0a0f1e] border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 rounded-lg bg-lime-500/15 text-lime-300 text-xs font-bold border border-lime-500/25">2. 右ページでつなぐ</span>
+              <span class="text-[11px] text-slate-400">子機・クライアント</span>
+            </div>
+            <h2 class="text-base font-bold text-white mb-1">親機と同期する</h2>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              QRコードを読み取るか、4桁のルーム番号を入力して接続します。
+            </p>
+
+            <div class="mb-4">
+              <label for="roomIdInput" class="block text-xs font-medium text-slate-400 mb-1.5">4桁のルーム番号</label>
+              <input type="tel" id="roomIdInput" maxlength="4" inputmode="numeric" placeholder="例: 4829"
+                class="w-full min-h-[54px] text-center text-2xl font-extrabold tracking-[0.35em] py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-lime-400 focus:outline-none text-white placeholder-slate-600" />
+            </div>
+
+            <p class="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 leading-relaxed">
+              ページめくり・表紙ズレ・赤ペン書き込みが自動で同期されます。
+            </p>
+          </div>
+
+          <button id="btnJoinClient" type="button" class="btn-gloss w-full min-h-[46px] py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-extrabold text-sm transition mt-3">
+            右ページとして接続
+          </button>
+        </section>
+
+        <!-- アクション3: ブックから開く（iPhoneブック / 共有連携） -->
+        <section class="sonora-panel bg-[#0a0f1e] border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2.5 py-1 rounded-lg bg-slate-500/15 text-slate-300 text-xs font-bold border border-slate-500/25">3. ブックから開く</span>
+              <span class="text-[11px] text-slate-400">iOSブック連携</span>
+            </div>
+            <h2 class="text-base font-bold text-white mb-1">Apple Booksと連携</h2>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              iPhoneの「ブック」アプリにあるPDFの取り込み手順や、ショートカット連携URLを確認できます。
+            </p>
+
+            <div class="space-y-2 text-xs text-slate-300 bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 mb-3">
+              <div class="flex items-start gap-2">
+                <span class="font-bold text-slate-400 shrink-0">取込:</span>
+                <span>ブックの「共有」→「ファイルに保存」から選択</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="font-bold text-lime-400 shrink-0">書出:</span>
+                <span>楽譜メニューの「ブックに送る」で保存</span>
+              </div>
+            </div>
+          </div>
+
+          <button id="btnOpenBooksGuide" type="button" class="w-full min-h-[46px] py-3 rounded-xl bg-slate-500/15 hover:bg-slate-500/25 text-slate-200 border border-slate-500/35 font-bold text-sm transition">
+            ブック連携ガイドを開く
+          </button>
+        </section>
+
+      </div>
+
+      <!-- 最近の楽譜（IndexedDB自動保存） -->
+      <section id="recentScoresSection" class="sonora-panel hidden bg-[#0a0f1e] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-white">最近の楽譜（端末内に保存済み）</h3>
+          <button id="btnClearHistory" type="button" class="min-h-[36px] px-2.5 py-1 text-xs text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition">
+            履歴を削除
+          </button>
+        </div>
+        <div id="recentScoresList" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-40 overflow-y-auto pr-1"></div>
+      </section>
+    </main>
+
+    <!-- フッター -->
+    <footer class="relative z-10 w-full max-w-4xl pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
+      <span>PDFはサーバーに保存されず、端末間で直接同期されます。</span>
+      <span>楽譜表示中のメニュー開閉: 中央ダブルタップ / 2本指タップ / ESC</span>
+    </footer>
+  </div>
+
+  <!-- ==================== iPhone ブック連携ガイドモーダル ==================== -->
+  <div id="booksGuideModal" role="dialog" aria-modal="true" aria-labelledby="booksGuideTitle" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#0a0f1e] border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button id="btnCloseBooksGuide" type="button" aria-label="閉じる" class="absolute top-3.5 right-3.5 w-10 h-10 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <h3 id="booksGuideTitle" class="text-base font-extrabold text-white mb-1">iPhone「ブック」連携ガイド</h3>
+      <p class="text-xs text-slate-400 mb-4">Apple BooksとのPDF受け渡し手順</p>
+
+      <div class="space-y-3 text-xs text-slate-300">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
+          <div class="font-bold text-lime-300 mb-1.5">ブックから読み込む手順</div>
+          <ol class="list-decimal list-inside space-y-1 text-slate-300 leading-relaxed">
+            <li>iPhoneの「ブック」アプリで楽譜PDFを開く</li>
+            <li>共有（□↑）アイコン →「ファイルに保存」を選択</li>
+            <li>本アプリの「PDFファイルを選択」から保存したPDFを指定</li>
+          </ol>
+        </div>
+
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
+          <div class="font-bold text-lime-300 mb-1.5">iOSショートカット連携URL</div>
+          <p class="text-slate-400 mb-2 leading-relaxed">
+            「ショートカット」アプリの「URLを開く」アクションに以下のURLを設定すると、共有メニューから素早く開けます。
+          </p>
+          <div class="flex items-center gap-2">
+            <input type="text" id="shortcutReceiverUrl" readonly class="flex-1 min-h-[40px] bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 font-mono" />
+            <button id="btnCopyShortcutUrl" type="button" class="min-h-[40px] px-3 py-1.5 rounded-lg bg-lime-500 hover:bg-lime-400 text-slate-950 font-bold text-xs shrink-0 transition">
+              コピー
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
+          <div class="font-bold text-slate-300 mb-1">ブックへ書き出す手順</div>
+          <p class="text-slate-400 leading-relaxed">
+            楽譜表示中に中央ダブルタップ等でメニューを開き、「ブックに送る」を押すと共有シートからブックへ保存できます。
+          </p>
+        </div>
+      </div>
+
+      <button id="btnConfirmBooksGuide" type="button" class="mt-5 w-full min-h-[44px] py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-slate-950 font-extrabold text-sm transition">
+        閉じる
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== ペアリングQR / ルーム番号モーダル ==================== -->
+  <div id="pairModal" role="dialog" aria-modal="true" aria-labelledby="pairModalTitle" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#0a0f1e] border border-slate-700 rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-2xl text-center relative">
+      <button id="btnClosePairModal" type="button" aria-label="ペアリング画面を閉じる" class="absolute top-3.5 right-3.5 w-10 h-10 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <span class="inline-block px-2.5 py-0.5 rounded-full bg-lime-500/15 text-lime-300 text-[11px] font-bold mb-2">右ページ端末とペアリング</span>
+      <h3 id="pairModalTitle" class="text-lg font-extrabold text-white mb-1">QRコードまたは4桁番号で接続</h3>
+      <p class="text-xs text-slate-400 mb-4">右ページにするスマホのカメラで読み取るか、番号を入力してください。</p>
+
+      <div class="bg-white p-6 rounded-2xl inline-flex items-center justify-center mx-auto mb-4 shadow-lg border border-slate-200">
+        <div id="qrcodeContainer" class="w-[240px] h-[240px] flex items-center justify-center"></div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-4 mb-3">
+        <div class="text-[10px] uppercase tracking-wider text-slate-400">4桁ルーム番号</div>
+        <div id="displayRoomCode" class="text-3xl font-extrabold tracking-[0.28em] text-lime-300 font-mono mt-0.5">----</div>
+      </div>
+
+      <button id="btnCopyRoomUrl" type="button" class="w-full min-h-[42px] py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition mb-2">
+        接続用URLをコピー
+      </button>
+
+      <p id="pairStatusText" class="text-xs text-lime-300/90 animate-pulse">右ページ端末の接続を待機中...</p>
+    </div>
+  </div>
+
+  <!-- ==================== 全ページサムネイル一覧モーダル ==================== -->
+  <div id="thumbnailModal" role="dialog" aria-modal="true" aria-labelledby="thumbModalTitle" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex flex-col p-4 sm:p-6"
+    style="padding-top: calc(1rem + var(--safe-top)); padding-bottom: calc(1rem + var(--safe-bottom));">
+    <div class="max-w-5xl w-full mx-auto flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-2.5">
+        <h3 id="thumbModalTitle" class="text-base font-extrabold text-white">ページ一覧・ジャンプ</h3>
+        <span id="thumbTotalBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-lime-500/15 text-lime-300 border border-lime-500/30 font-bold">全 -- ページ</span>
+      </div>
+      <button id="btnCloseThumbModal" type="button" aria-label="ページ一覧を閉じる" class="min-h-[42px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700">
+        閉じる
+      </button>
+    </div>
+    <div id="thumbnailGrid" class="max-w-5xl w-full mx-auto flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 py-4"></div>
+  </div>
+
+  <!-- ==================== 練習番号ブックマーク登録モーダル ==================== -->
+  <div id="bookmarkModal" role="dialog" aria-modal="true" aria-labelledby="bookmarkModalTitle" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#0a0f1e] border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <h3 id="bookmarkModalTitle" class="text-base font-extrabold text-white mb-1">練習番号を登録</h3>
+      <p id="bookmarkPageDesc" class="text-xs text-slate-400 mb-3">現在の見開きを登録します</p>
+
+      <div class="flex flex-wrap gap-1.5 mb-3">
+        <button type="button" class="bm-preset min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">[Intro]</button>
+        <button type="button" class="bm-preset min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">[A]</button>
+        <button type="button" class="bm-preset min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">[B]</button>
+        <button type="button" class="bm-preset min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">[C]</button>
+        <button type="button" class="bm-preset min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">[D]</button>
+        <button type="button" class="bm-preset min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">[E]</button>
+        <button type="button" class="bm-preset min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">[Coda]</button>
+      </div>
+
+      <input type="text" id="bookmarkLabelInput" maxlength="16" placeholder="例: [B] または 88小節"
+        class="w-full min-h-[44px] px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-lime-400 focus:outline-none text-sm text-white mb-4" />
+
+      <div class="flex items-center justify-end gap-2">
+        <button id="btnCancelBookmark" type="button" class="min-h-[42px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">キャンセル</button>
+        <button id="btnSaveBookmark" type="button" class="min-h-[42px] px-4 py-2 rounded-xl bg-lime-500 hover:bg-lime-400 text-xs font-extrabold text-slate-950">登録する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ベゼル・表示位置微調整パネル ==================== -->
+  <div id="bezelAdjustPanel" class="fixed bottom-5 right-4 z-50 bg-[#0a0f1e]/95 backdrop-blur-md border border-slate-700 rounded-2xl p-4 shadow-2xl w-72 max-w-[calc(100vw-2rem)] hidden"
+    style="margin-bottom: var(--safe-bottom); margin-right: var(--safe-right);">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-extrabold text-white">ベゼル・表示位置微調整</span>
+      <button id="btnCloseBezelPanel" type="button" aria-label="位置調整を閉じる" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center text-xs">✕</button>
+    </div>
+    <p class="text-[11px] text-slate-400 mb-3 leading-relaxed">2台の端末の枠幅や高さズレに合わせて譜面位置を微調整します。</p>
+
+    <div class="space-y-3 text-xs">
+      <div>
+        <div class="flex justify-between text-slate-300 mb-1">
+          <span>左右位置 (X)</span>
+          <span id="offsetXVal" class="font-mono text-lime-300">0 px</span>
+        </div>
+        <input type="range" id="sliderOffsetX" min="-60" max="60" value="0" class="w-full h-2 accent-lime-400 cursor-pointer" />
+      </div>
+      <div>
+        <div class="flex justify-between text-slate-300 mb-1">
+          <span>上下位置 (Y)</span>
+          <span id="offsetYVal" class="font-mono text-lime-300">0 px</span>
+        </div>
+        <input type="range" id="sliderOffsetY" min="-60" max="60" value="0" class="w-full h-2 accent-lime-400 cursor-pointer" />
+      </div>
+      <button id="btnResetBezelOffset" type="button" class="w-full min-h-[40px] py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700">
+        中央にリセット
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== メイン・スコアビューアー画面（普段はボタン・バー一切非表示） ==================== -->
+  <div id="viewerScreen" class="relative w-full h-full bg-[#04060d] hidden flex-col overflow-hidden">
+
+    <!-- 控えめで確実なページめくりエッジフィードバック -->
+    <div id="edgeFlashLeft" class="pointer-events-none fixed inset-y-0 left-0 w-10 z-20 opacity-0 bg-gradient-to-r from-lime-400/20 to-transparent"></div>
+    <div id="edgeFlashRight" class="pointer-events-none fixed inset-y-0 right-0 w-10 z-20 opacity-0 bg-gradient-to-l from-lime-400/20 to-transparent"></div>
+
+    <!-- 初回起動時のみ表示され、すぐ消える控えめな操作ヒント -->
+    <div id="firstTimeHint" class="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-20 hidden transition-opacity duration-500 px-3.5 py-2 rounded-full bg-slate-900/75 backdrop-blur-sm border border-slate-700/60 text-[11px] text-slate-300 whitespace-nowrap"
+      style="margin-bottom: var(--safe-bottom);">
+      左右端タップで譜めくり・中央ダブルタップでメニュー
+    </div>
+
+    <!-- 赤ペン書き込みサブツールバー（ペンモード有効時のみ画面上部に最小表示） -->
+    <div id="drawToolbar" class="fixed top-3 left-1/2 -translate-x-1/2 z-50 hidden bg-[#0a0f1e]/95 backdrop-blur-md border border-rose-500/40 rounded-2xl px-3 py-2 shadow-2xl flex items-center gap-2 max-w-[calc(100vw-1.5rem)] overflow-x-auto"
+      style="margin-top: var(--safe-top);">
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="penColorRed" type="button" aria-label="赤ペン" class="w-8 h-8 rounded-full bg-rose-500 ring-2 ring-white transition"></button>
+        <button id="penColorYellow" type="button" aria-label="蛍光イエローマーカー" class="w-8 h-8 rounded-full bg-lime-300/85 border border-slate-600 transition"></button>
+        <button id="penColorCyan" type="button" aria-label="シアンペン" class="w-8 h-8 rounded-full bg-cyan-400 border border-slate-600 transition"></button>
+      </div>
+      <div class="h-5 w-px bg-slate-700 shrink-0"></div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="btnUndoDraw" type="button" class="min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200">1手戻す</button>
+        <button id="btnClearDraw" type="button" class="min-h-[36px] px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-xs font-semibold text-rose-300 border border-rose-500/30">全消し</button>
+        <button id="btnExitDrawMode" type="button" class="min-h-[36px] px-3 py-1 rounded-lg bg-lime-500 hover:bg-lime-400 text-slate-950 font-extrabold text-xs">完了</button>
+      </div>
+    </div>
+
+    <!-- コントロールオーバーレイ（中央ダブルタップ / 2本指タップ / ESC で開閉） -->
+    <div id="controlOverlay" role="dialog" aria-modal="true" aria-label="楽譜コントロールメニュー"
+      class="overlay-panel overlay-hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-md flex flex-col justify-center p-3 sm:p-6 overflow-y-auto"
+      style="padding-top: calc(0.75rem + var(--safe-top)); padding-bottom: calc(0.75rem + var(--safe-bottom)); padding-left: calc(0.75rem + var(--safe-left)); padding-right: calc(0.75rem + var(--safe-right));">
+
+      <div class="max-w-3xl w-full mx-auto bg-[#0a0f1e]/95 border border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4">
+
+        <!-- 上部: 状態表示 ＋ 楽譜に戻る -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-lime-400 shrink-0"></span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span id="roleBadgeText" class="text-sm font-extrabold text-white">左ページ (親機)</span>
+                <span id="pingBadge" class="hidden text-[10px] font-mono px-1.5 py-0.5 rounded bg-lime-500/15 text-lime-300 border border-lime-500/25">--ms</span>
+              </div>
+              <div id="connectionSubText" class="text-[11px] text-slate-400 truncate">接続状態を確認中</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            <!-- バッテリー状態 -->
+            <div id="batteryMonitorBox" class="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px]">
+              <div id="localBatteryBadge" class="flex items-center gap-1 text-slate-300">
+                <span>🔋</span>
+                <span id="localBatteryText">--%</span>
+              </div>
+              <span id="remoteBatteryDivider" class="text-slate-700 hidden">|</span>
+              <div id="remoteBatteryBadge" class="hidden items-center gap-1 text-slate-300">
+                <span class="text-[10px] text-slate-400">相手:</span>
+                <span id="remoteBatteryText">--%</span>
+              </div>
+            </div>
+
+            <button id="btnCloseControlOverlay" type="button" class="btn-gloss min-h-[42px] px-4 py-2 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 text-xs font-extrabold transition">
+              楽譜に戻る
+            </button>
+          </div>
+        </div>
+
+        <!-- ページ移動・一覧ジャンプ・練習番号ブックマーク -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 sm:p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <button id="btnPrevSpread" type="button" class="min-h-[44px] px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 flex items-center gap-1 transition shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span>前へ</span>
+            </button>
+
+            <button id="btnOpenThumbnails" type="button" class="min-h-[44px] flex-1 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-center transition min-w-0">
+              <div id="pageIndicatorText" class="text-sm font-extrabold text-lime-300 truncate">P. 1 - 2 / --</div>
+              <div id="fileTitleFooter" class="text-[10px] text-slate-400 truncate">タップでページ一覧を開く</div>
+            </button>
+
+            <button id="btnNextSpread" type="button" class="btn-gloss min-h-[44px] px-3 py-2 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 text-xs font-extrabold flex items-center gap-1 transition shrink-0">
+              <span>次へ</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          <input type="range" id="pageSlider" min="1" max="1" value="1" step="1" aria-label="見開きページスライダー"
+            class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-lime-400" />
+
+          <div class="pt-1 flex items-center justify-between gap-2 flex-wrap">
+            <div id="bookmarkBar" class="hidden flex items-center gap-1.5 overflow-x-auto max-w-full py-0.5">
+              <span class="text-[10px] font-bold text-lime-300/80 shrink-0">練習番号:</span>
+              <div id="bookmarkChipsContainer" class="flex items-center gap-1.5"></div>
+            </div>
+            <button id="btnAddBookmark" type="button" class="ml-auto min-h-[38px] px-3 py-1.5 rounded-lg bg-lime-500/15 hover:bg-lime-500/25 text-lime-300 border border-lime-500/30 text-xs font-bold transition">
+              + 練習番号を登録
+            </button>
+          </div>
+        </div>
+
+        <!-- 表示・同期・共有操作群 -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">表示・同期・共有操作</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button id="btnToggleDrawMode" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-rose-300 flex items-center justify-center transition">
+              赤ペン書き込み
+            </button>
+
+            <button id="btnToggleOffset" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-lime-300 flex items-center justify-center transition">
+              <span id="offsetLabel">表紙なし (1-2)</span>
+            </button>
+
+            <button id="btnOpenThumbnailsQuick" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-200 flex items-center justify-center transition">
+              ページ一覧
+            </button>
+
+            <button id="btnOpenPairFromHud" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-lime-300 flex items-center justify-center transition">
+              QR / 接続確認
+            </button>
+
+            <button id="btnToggleCrop" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-300 flex items-center justify-center transition">
+              余白カット拡大
+            </button>
+
+            <button id="btnToggleNightScore" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-300 flex items-center justify-center transition">
+              暗転カラー反転
+            </button>
+
+            <button id="btnToggleBezelPanel" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-200 flex items-center justify-center transition">
+              ベゼル位置調整
+            </button>
+
+            <button id="btnShareScore" type="button" class="min-h-[44px] p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-300 flex items-center justify-center transition">
+              ブックに送る
+            </button>
+          </div>
+        </div>
+
+        <!-- 誤タップロックと、切断・終了の2段階確認 -->
+        <div class="pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="btnToggleLock" type="button" class="min-h-[42px] px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5">
+              <svg id="iconLockOpen" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              </svg>
+              <svg id="iconLockClosed" class="w-4 h-4 hidden text-rose-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span id="lockStatusLabel">誤タップロック: OFF</span>
+            </button>
+
+            <button id="btnWakeLock" type="button" class="min-h-[42px] px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition">
+              スリープ防止
+            </button>
+          </div>
+
+          <div class="flex items-center justify-end gap-2">
+            <span id="exitConfirmHint" class="hidden text-[11px] text-rose-300 font-semibold">通信を切断して戻りますか？</span>
+            <button id="btnCancelExit" type="button" class="hidden min-h-[42px] px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">
+              やめる
+            </button>
+            <button id="btnBackToSetup" type="button" class="min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-950/70 hover:bg-rose-900/80 text-rose-300 border border-rose-500/35 text-xs font-bold transition">
+              終了して戻る
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 中央スコア表示エリア（ボタン・バー・余白を排した極限のフルスクリーン表示） -->
+    <main id="canvasViewport" class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden touch-pan-y">
+      <!-- 1画面モード用 キャンバス＋書き込みレイヤー -->
+      <div id="singlePageWrapper" class="relative flex items-center justify-center w-full h-full">
+        <div id="singleCanvasContainer" class="relative flex items-center justify-center">
+          <canvas id="pdfCanvasSingle" class="block bg-white fullscreen-score-canvas"></canvas>
+          <canvas id="drawCanvasSingle" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+          <div id="blankPageNotice" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-600 pointer-events-none bg-[#04060d]">
+            <span class="text-sm font-semibold tracking-widest uppercase">Blank / Cover Reverse</span>
+            <span class="text-xs mt-1">表紙の裏（白紙ページ）</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1台見開きシミュレーションモード用 左右2画面コンテナ -->
+      <div id="splitSimWrapper" class="hidden w-full h-full flex items-center justify-center gap-0.5 bg-[#04060d]">
+        <div class="relative flex-1 h-full flex items-center justify-end overflow-hidden">
+          <div class="relative inline-flex items-center justify-center">
+            <canvas id="pdfCanvasSimLeft" class="block bg-white fullscreen-score-canvas"></canvas>
+            <canvas id="drawCanvasSimLeft" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+          </div>
+        </div>
+        <div class="w-[1px] h-full bg-lime-400/20 shrink-0"></div>
+        <div class="relative flex-1 h-full flex items-center justify-start overflow-hidden">
+          <div class="relative inline-flex items-center justify-center">
+            <canvas id="pdfCanvasSimRight" class="block bg-white fullscreen-score-canvas"></canvas>
+            <canvas id="drawCanvasSimRight" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 透明タップゾーン（左右ページ送り＆中央ダブルタップでメニュー開閉） -->
+      <div id="tapZonePrev" aria-label="前の見開きへ" class="absolute inset-y-0 left-0 w-[26%] z-10 cursor-pointer"></div>
+      <div id="tapZoneCenter" aria-label="メニュー開閉（ダブルタップ）" class="absolute inset-y-0 left-[26%] right-[26%] z-10 cursor-pointer"></div>
+      <div id="tapZoneNext" aria-label="次の見開きへ" class="absolute inset-y-0 right-0 w-[26%] z-10 cursor-pointer"></div>
+
+      <!-- PDF転送・読み込み中ローディング表示 -->
+      <div id="loadingOverlay" class="absolute inset-0 z-20 bg-black/85 backdrop-blur-sm hidden flex-col items-center justify-center p-6 text-center">
+        <div class="w-11 h-11 border-4 border-lime-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p id="loadingText" class="text-sm font-bold text-white">スコアを読み込み中...</p>
+        <div id="transferProgressBarWrap" class="hidden w-56 h-2 bg-slate-800 rounded-full overflow-hidden mt-3 border border-slate-700">
+          <div id="transferProgressBar" class="h-full bg-lime-400 transition-all duration-150" style="width: 0%"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- トースト通知コンテナ -->
+  <div id="toastContainer" aria-live="polite" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-full max-w-sm px-4"
+    style="margin-top: var(--safe-top);"></div>
+
+  <script>
+    // PDF.js Worker設定（読み込み失敗時のフォールバックも用意）
+    if (window.pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // ==================== アプリケーション状態管理 ====================
+    const state = {
+      role: null, // 'host' | 'client' | 'demo'
+      pdfDoc: null,
+      pdfBuffer: null,
+      fileName: '',
+      totalPages: 0,
+      spreadIndex: 0,
+      coverOffset: false,
+      cropMargins: false,
+      nightScore: false,
+      isLocked: false,
+      overlayOpen: false,
+      exitArmed: false,
+      wakeLock: null,
+
+      offsetX: 0,
+      offsetY: 0,
+
+      drawMode: false,
+      penColor: '#f43f5e',
+      penWidth: 0.0045,
+      annotations: {},
+      currentStroke: null,
+
+      bookmarks: [],
+
+      localBattery: null,
+      remoteBattery: null,
+      lastPingTime: 0,
+      pingInterval: null,
+
+      peer: null,
+      conn: null,
+      roomCode: '',
+      isConnected: false,
+      reconnectTimer: null,
+      incomingChunks: [],
+      incomingTotalChunks: 0,
+      incomingFileName: ''
+    };
+
+    // ==================== DOM要素キャッシュ ====================
+    const els = {
+      setupScreen: document.getElementById('setupScreen'),
+      viewerScreen: document.getElementById('viewerScreen'),
+      dropZoneOverlay: document.getElementById('dropZoneOverlay'),
+      pdfDropLabel: document.getElementById('pdfDropLabel'),
+      pdfFileInput: document.getElementById('pdfFileInput'),
+      selectedFileName: document.getElementById('selectedFileName'),
+      btnStartSampleHost: document.getElementById('btnStartSampleHost'),
+      btnLaunchHost: document.getElementById('btnLaunchHost'),
+      roomIdInput: document.getElementById('roomIdInput'),
+      btnJoinClient: document.getElementById('btnJoinClient'),
+      btnDemoSplit: document.getElementById('btnDemoSplit'),
+
+      recentScoresSection: document.getElementById('recentScoresSection'),
+      recentScoresList: document.getElementById('recentScoresList'),
+      btnClearHistory: document.getElementById('btnClearHistory'),
+
+      btnOpenBooksGuide: document.getElementById('btnOpenBooksGuide'),
+      booksGuideModal: document.getElementById('booksGuideModal'),
+      btnCloseBooksGuide: document.getElementById('btnCloseBooksGuide'),
+      btnConfirmBooksGuide: document.getElementById('btnConfirmBooksGuide'),
+      shortcutReceiverUrl: document.getElementById('shortcutReceiverUrl'),
+      btnCopyShortcutUrl: document.getElementById('btnCopyShortcutUrl'),
+
+      pairModal: document.getElementById('pairModal'),
+      btnClosePairModal: document.getElementById('btnClosePairModal'),
+      qrcodeContainer: document.getElementById('qrcodeContainer'),
+      displayRoomCode: document.getElementById('displayRoomCode'),
+      btnCopyRoomUrl: document.getElementById('btnCopyRoomUrl'),
+      pairStatusText: document.getElementById('pairStatusText'),
+
+      thumbnailModal: document.getElementById('thumbnailModal'),
+      btnCloseThumbModal: document.getElementById('btnCloseThumbModal'),
+      thumbTotalBadge: document.getElementById('thumbTotalBadge'),
+      thumbnailGrid: document.getElementById('thumbnailGrid'),
+
+      bookmarkModal: document.getElementById('bookmarkModal'),
+      bookmarkPageDesc: document.getElementById('bookmarkPageDesc'),
+      bookmarkLabelInput: document.getElementById('bookmarkLabelInput'),
+      btnCancelBookmark: document.getElementById('btnCancelBookmark'),
+      btnSaveBookmark: document.getElementById('btnSaveBookmark'),
+      bookmarkBar: document.getElementById('bookmarkBar'),
+      bookmarkChipsContainer: document.getElementById('bookmarkChipsContainer'),
+
+      bezelAdjustPanel: document.getElementById('bezelAdjustPanel'),
+      btnToggleBezelPanel: document.getElementById('btnToggleBezelPanel'),
+      btnCloseBezelPanel: document.getElementById('btnCloseBezelPanel'),
+      sliderOffsetX: document.getElementById('sliderOffsetX'),
+      sliderOffsetY: document.getElementById('sliderOffsetY'),
+      offsetXVal: document.getElementById('offsetXVal'),
+      offsetYVal: document.getElementById('offsetYVal'),
+      btnResetBezelOffset: document.getElementById('btnResetBezelOffset'),
+
+      controlOverlay: document.getElementById('controlOverlay'),
+      btnCloseControlOverlay: document.getElementById('btnCloseControlOverlay'),
+      btnBackToSetup: document.getElementById('btnBackToSetup'),
+      btnCancelExit: document.getElementById('btnCancelExit'),
+      exitConfirmHint: document.getElementById('exitConfirmHint'),
+      btnOpenPairFromHud: document.getElementById('btnOpenPairFromHud'),
+      btnOpenThumbnailsQuick: document.getElementById('btnOpenThumbnailsQuick'),
+      statusDot: document.getElementById('statusDot'),
+      roleBadgeText: document.getElementById('roleBadgeText'),
+      pingBadge: document.getElementById('pingBadge'),
+      connectionSubText: document.getElementById('connectionSubText'),
+
+      batteryMonitorBox: document.getElementById('batteryMonitorBox'),
+      localBatteryText: document.getElementById('localBatteryText'),
+      remoteBatteryDivider: document.getElementById('remoteBatteryDivider'),
+      remoteBatteryBadge: document.getElementById('remoteBatteryBadge'),
+      remoteBatteryText: document.getElementById('remoteBatteryText'),
+
+      btnToggleDrawMode: document.getElementById('btnToggleDrawMode'),
+      drawToolbar: document.getElementById('drawToolbar'),
+      penColorRed: document.getElementById('penColorRed'),
+      penColorYellow: document.getElementById('penColorYellow'),
+      penColorCyan: document.getElementById('penColorCyan'),
+      btnUndoDraw: document.getElementById('btnUndoDraw'),
+      btnClearDraw: document.getElementById('btnClearDraw'),
+      btnExitDrawMode: document.getElementById('btnExitDrawMode'),
+
+      btnAddBookmark: document.getElementById('btnAddBookmark'),
+      btnToggleOffset: document.getElementById('btnToggleOffset'),
+      offsetLabel: document.getElementById('offsetLabel'),
+      btnToggleCrop: document.getElementById('btnToggleCrop'),
+      btnToggleNightScore: document.getElementById('btnToggleNightScore'),
+      btnShareScore: document.getElementById('btnShareScore'),
+      btnToggleLock: document.getElementById('btnToggleLock'),
+      lockStatusLabel: document.getElementById('lockStatusLabel'),
+      iconLockOpen: document.getElementById('iconLockOpen'),
+      iconLockClosed: document.getElementById('iconLockClosed'),
+      btnWakeLock: document.getElementById('btnWakeLock'),
+
+      canvasViewport: document.getElementById('canvasViewport'),
+      singlePageWrapper: document.getElementById('singlePageWrapper'),
+      singleCanvasContainer: document.getElementById('singleCanvasContainer'),
+      pdfCanvasSingle: document.getElementById('pdfCanvasSingle'),
+      drawCanvasSingle: document.getElementById('drawCanvasSingle'),
+      blankPageNotice: document.getElementById('blankPageNotice'),
+
+      splitSimWrapper: document.getElementById('splitSimWrapper'),
+      pdfCanvasSimLeft: document.getElementById('pdfCanvasSimLeft'),
+      drawCanvasSimLeft: document.getElementById('drawCanvasSimLeft'),
+      pdfCanvasSimRight: document.getElementById('pdfCanvasSimRight'),
+      drawCanvasSimRight: document.getElementById('drawCanvasSimRight'),
+
+      edgeFlashLeft: document.getElementById('edgeFlashLeft'),
+      edgeFlashRight: document.getElementById('edgeFlashRight'),
+      firstTimeHint: document.getElementById('firstTimeHint'),
+
+      tapZonePrev: document.getElementById('tapZonePrev'),
+      tapZoneCenter: document.getElementById('tapZoneCenter'),
+      tapZoneNext: document.getElementById('tapZoneNext'),
+      loadingOverlay: document.getElementById('loadingOverlay'),
+      loadingText: document.getElementById('loadingText'),
+      transferProgressBarWrap: document.getElementById('transferProgressBarWrap'),
+      transferProgressBar: document.getElementById('transferProgressBar'),
+
+      btnPrevSpread: document.getElementById('btnPrevSpread'),
+      btnNextSpread: document.getElementById('btnNextSpread'),
+      btnOpenThumbnails: document.getElementById('btnOpenThumbnails'),
+      pageIndicatorText: document.getElementById('pageIndicatorText'),
+      fileTitleFooter: document.getElementById('fileTitleFooter'),
+      pageSlider: document.getElementById('pageSlider'),
+      toastContainer: document.getElementById('toastContainer')
+    };
+
+    // ==================== トースト通知 & ローディング制御 ====================
+    function showToast(message, type = 'info') {
+      const colors = {
+        info: 'bg-slate-900/95 border-slate-700 text-slate-100',
+        success: 'bg-lime-950/95 border-lime-500/50 text-lime-200',
+        warn: 'bg-lime-950/95 border-lime-500/50 text-lime-200',
+        error: 'bg-rose-950/95 border-rose-500/50 text-rose-200'
+      };
+      const div = document.createElement('div');
+      div.className = `px-4 py-2.5 rounded-2xl border shadow-2xl text-xs font-semibold backdrop-blur-md transition-all duration-200 ${colors[type] || colors.info}`;
+      div.textContent = message;
+      els.toastContainer.appendChild(div);
+      setTimeout(() => {
+        div.style.opacity = '0';
+        div.style.transform = 'translateY(-6px)';
+        setTimeout(() => div.remove(), 220);
+      }, 2600);
+    }
+
+    function setLoading(visible, text = 'スコアを読み込み中...', progressPercent = null) {
+      if (visible) {
+        els.loadingText.textContent = text;
+        els.loadingOverlay.classList.remove('hidden');
+        els.loadingOverlay.classList.add('flex');
+        if (progressPercent !== null) {
+          els.transferProgressBarWrap.classList.remove('hidden');
+          els.transferProgressBar.style.width = `${Math.min(100, Math.max(0, progressPercent))}%`;
+        } else {
+          els.transferProgressBarWrap.classList.add('hidden');
+        }
+      } else {
+        els.loadingOverlay.classList.add('hidden');
+        els.loadingOverlay.classList.remove('flex');
+        els.transferProgressBarWrap.classList.add('hidden');
+      }
+    }
+
+    // 控えめなエッジめくりフィードバック
+    function triggerEdgeFlash(direction) {
+      const target = direction === 'next' ? els.edgeFlashRight : els.edgeFlashLeft;
+      target.classList.remove('edge-pulse-active');
+      void target.offsetWidth;
+      target.classList.add('edge-pulse-active');
+    }
+
+    // 初回表示時のみヒントを薄くフェードアウト
+    function maybeShowFirstTimeHint() {
+      const seenKey = 'scoresync_hint_seen_v1';
+      try {
+        if (localStorage.getItem(seenKey)) return;
+        localStorage.setItem(seenKey, '1');
+      } catch (_) {}
+      els.firstTimeHint.classList.remove('hidden');
+      els.firstTimeHint.style.opacity = '1';
+      setTimeout(() => {
+        els.firstTimeHint.style.opacity = '0';
+        setTimeout(() => els.firstTimeHint.classList.add('hidden'), 500);
+      }, 3600);
+    }
+
+    // ==================== コントロールオーバーレイ開閉 ====================
+    function resetExitConfirmation() {
+      state.exitArmed = false;
+      els.exitConfirmHint.classList.add('hidden');
+      els.btnCancelExit.classList.add('hidden');
+      els.btnBackToSetup.textContent = '終了して戻る';
+    }
+
+    function setControlOverlayOpen(open) {
+      state.overlayOpen = open;
+      if (open) {
+        resetExitConfirmation();
+        els.controlOverlay.classList.remove('overlay-hidden');
+        els.controlOverlay.classList.add('overlay-visible');
+      } else {
+        els.controlOverlay.classList.remove('overlay-visible');
+        els.controlOverlay.classList.add('overlay-hidden');
+        els.bezelAdjustPanel.classList.add('hidden');
+      }
+    }
+
+    // ==================== IndexedDB 最近の楽譜ライブラリ ====================
+    const DB_NAME = 'ScoreSyncLibraryDB';
+    const STORE_NAME = 'scores';
+
+    function openScoreDb() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          reject(new Error('IndexedDB unavailable'));
+          return;
+        }
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function saveScoreToLibrary(fileName, arrayBuffer, totalPages) {
+      try {
+        const db = await openScoreDb();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        await new Promise((resolve, reject) => {
+          const r = store.put({
+            id: fileName,
+            fileName,
+            totalPages,
+            buffer: arrayBuffer.slice(0),
+            updatedAt: Date.now()
+          });
+          r.onsuccess = resolve;
+          r.onerror = () => reject(r.error);
+        });
+        renderRecentScoresList();
+      } catch (err) {
+        console.warn('ライブラリ保存スキップ:', err);
+      }
+    }
+
+    async function renderRecentScoresList() {
+      try {
+        const db = await openScoreDb();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const items = await new Promise((resolve, reject) => {
+          const r = store.getAll();
+          r.onsuccess = () => resolve(r.result || []);
+          r.onerror = () => reject(r.error);
+        });
+
+        items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        const topItems = items.slice(0, 6);
+
+        if (topItems.length === 0) {
+          els.recentScoresSection.classList.add('hidden');
+          return;
+        }
+
+        els.recentScoresSection.classList.remove('hidden');
+        els.recentScoresList.innerHTML = '';
+
+        topItems.forEach((item) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'min-h-[48px] flex items-center justify-between gap-2 p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-left transition';
+          const dateStr = item.updatedAt
+            ? new Date(item.updatedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })
+            : '';
+          btn.innerHTML = `
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white truncate">${item.fileName}</div>
+              <div class="text-[10px] text-slate-400">${item.totalPages || '?'} ページ${dateStr ? ` · ${dateStr}` : ''}</div>
+            </div>
+            <span class="text-xs font-bold text-lime-300 shrink-0">開く</span>
+          `;
+          btn.addEventListener('click', async () => {
+            if (!item.buffer) {
+              showToast('保存データが空のため開けません', 'error');
+              return;
+            }
+            enterViewerMode('host');
+            await loadPdfFromBuffer(item.buffer.slice(0), item.fileName);
+            showToast(`「${item.fileName}」を開きました`, 'success');
+          });
+          els.recentScoresList.appendChild(btn);
+        });
+      } catch (_) {
+        els.recentScoresSection.classList.add('hidden');
+      }
+    }
+
+    // ==================== ブック・他アプリへの共有書き出し ====================
+    async function shareCurrentPdfToExternalApp() {
+      if (!state.pdfBuffer) {
+        showToast('共有できるPDFデータがありません', 'warn');
+        return;
+      }
+      const safeName = (state.fileName || 'Score.pdf').endsWith('.pdf')
+        ? state.fileName
+        : `${state.fileName || 'Score'}.pdf`;
+      const blob = new Blob([state.pdfBuffer], { type: 'application/pdf' });
+      const file = new File([blob], safeName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: safeName,
+            text: `楽譜PDF: ${safeName}`,
+            files: [file]
+          });
+          showToast('共有シートを開きました。「ブック」に保存できます', 'success');
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = safeName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      showToast('PDFをダウンロードしました。ブックやファイルから開けます', 'info');
+    }
+
+    // ==================== バッテリー監視 ====================
+    async function initBatteryMonitor() {
+      if (!('getBattery' in navigator)) return;
+      try {
+        const battery = await navigator.getBattery();
+        const updateLocalBattery = () => {
+          const pct = Math.round(battery.level * 100);
+          state.localBattery = { level: pct, charging: battery.charging };
+          els.batteryMonitorBox.classList.remove('hidden');
+          els.localBatteryText.textContent = `${battery.charging ? '⚡' : ''}${pct}%`;
+          if (pct <= 20 && !battery.charging) {
+            els.localBatteryText.className = 'text-rose-400 font-bold animate-pulse';
+            showToast(`この端末のバッテリー残量が低下しています (${pct}%)`, 'warn');
+          } else {
+            els.localBatteryText.className = 'text-slate-200';
+          }
+          sendPeerMessage({ type: 'BATTERY_STATUS', battery: state.localBattery });
+        };
+        updateLocalBattery();
+        battery.addEventListener('levelchange', updateLocalBattery);
+        battery.addEventListener('chargingchange', updateLocalBattery);
+      } catch (_) {}
+    }
+
+    function updateRemoteBatteryUI(remoteBat) {
+      if (!remoteBat) return;
+      state.remoteBattery = remoteBat;
+      els.batteryMonitorBox.classList.remove('hidden');
+      els.remoteBatteryDivider.classList.remove('hidden');
+      els.remoteBatteryBadge.classList.remove('hidden');
+      els.remoteBatteryBadge.classList.add('flex');
+      els.remoteBatteryText.textContent = `${remoteBat.charging ? '⚡' : ''}${remoteBat.level}%`;
+      if (remoteBat.level <= 20 && !remoteBat.charging) {
+        els.remoteBatteryText.className = 'text-rose-400 font-bold animate-pulse';
+        showToast(`相手端末のバッテリー残量が低下しています (${remoteBat.level}%)`, 'warn');
+      } else {
+        els.remoteBatteryText.className = 'text-slate-200';
+      }
+    }
+
+    // ==================== Screen Wake Lock API ====================
+    async function requestWakeLock(silent = false) {
+      if (!('wakeLock' in navigator)) {
+        if (!silent) showToast('このブラウザはスリープ防止APIに非対応です', 'warn');
+        return;
+      }
+      try {
+        if (state.wakeLock) {
+          await state.wakeLock.release();
+          state.wakeLock = null;
+          els.btnWakeLock.classList.remove('bg-lime-500/20', 'border-lime-500/50', 'text-lime-300');
+          if (!silent) showToast('画面スリープ防止を解除しました', 'info');
+          return;
+        }
+        state.wakeLock = await navigator.wakeLock.request('screen');
+        els.btnWakeLock.classList.add('bg-lime-500/20', 'border-lime-500/50', 'text-lime-300');
+        if (!silent) showToast('画面スリープ防止をONにしました', 'success');
+        state.wakeLock.addEventListener('release', () => {
+          state.wakeLock = null;
+          els.btnWakeLock.classList.remove('bg-lime-500/20', 'border-lime-500/50', 'text-lime-300');
+        });
+      } catch (_) {}
+    }
+
+    // ==================== サンプル吹奏楽フルスコア生成 ====================
+    async function generateSampleWindBandPdf() {
+      if (!window.PDFLib) {
+        throw new Error('PDF生成ライブラリを読み込めませんでした。通信環境を確認してください。');
+      }
+      const { PDFDocument, StandardFonts, rgb } = PDFLib;
+      const doc = await PDFDocument.create();
+      const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+      const fontReg = await doc.embedFont(StandardFonts.Helvetica);
+
+      const pageConfigs = [
+        { title: 'SYMPHONIC OVERTURE IN B-FLAT', sub: 'FULL SCORE - PAGE 1', mark: 'COVER' },
+        { title: '1. Allegro Maestoso (m. 1 - 24)', sub: 'Flute / Oboe / Clarinet / Trumpet / Horn / Trombone / Tuba', mark: '[Intro]' },
+        { title: '1. Allegro Maestoso (m. 25 - 48)', sub: 'Woodwind & Brass Tutti Section', mark: '[A]' },
+        { title: '2. Andante Cantabile (m. 49 - 76)', sub: 'Solo Oboe & Clarinet Choir', mark: '[B]' },
+        { title: '2. Andante Cantabile (m. 77 - 104)', sub: 'Horn Counter-melody & Euphonium', mark: '[C]' },
+        { title: '3. Vivace Finale (m. 105 - 136)', sub: 'Syncopated Rhythm & Percussion Feature', mark: '[D]' },
+        { title: '3. Vivace Finale (m. 137 - 168)', sub: 'Grandioso Recapitulation', mark: '[E]' },
+        { title: 'Coda - Presto con Fuoco (m. 169 - Fine)', sub: 'Full Wind Ensemble - Fine', mark: '[Coda]' }
+      ];
+
+      for (let i = 0; i < pageConfigs.length; i++) {
+        const cfg = pageConfigs[i];
+        const page = doc.addPage([595.28, 841.89]);
+        const { width, height } = page.getSize();
+
+        page.drawRectangle({
+          x: 32, y: 32, width: width - 64, height: height - 64,
+          borderColor: rgb(0.15, 0.15, 0.15), borderWidth: 1.5
+        });
+
+        page.drawText(`PAGE ${i + 1} / ${pageConfigs.length}`, {
+          x: width - 115, y: height - 56, size: 11, font: fontBold, color: rgb(0.2, 0.2, 0.2)
+        });
+
+        page.drawRectangle({
+          x: 48, y: height - 74, width: 64, height: 26,
+          borderColor: rgb(0.1, 0.1, 0.1), borderWidth: 2
+        });
+        page.drawText(cfg.mark, {
+          x: 56, y: height - 66, size: 13, font: fontBold, color: rgb(0.05, 0.05, 0.05)
+        });
+
+        page.drawText(cfg.title, {
+          x: 48, y: height - 108, size: 16, font: fontBold, color: rgb(0.05, 0.05, 0.05)
+        });
+        page.drawText(cfg.sub, {
+          x: 48, y: height - 128, size: 10, font: fontReg, color: rgb(0.35, 0.35, 0.35)
+        });
+
+        const instruments = ['Fl. / Ob.', 'Bb Cl. 1-3', 'A.Sax / T.Sax', 'Bb Trp. 1-3', 'F Hrn. / Trb.', 'Euph. / Tuba / Timp.'];
+        for (let s = 0; s < 6; s++) {
+          const baseY = height - 185 - s * 102;
+          page.drawText(instruments[s], {
+            x: 48, y: baseY + 12, size: 9, font: fontBold, color: rgb(0.2, 0.2, 0.2)
+          });
+
+          for (let line = 0; line < 5; line++) {
+            const ly = baseY - line * 6;
+            page.drawLine({
+              start: { x: 120, y: ly },
+              end: { x: width - 48, y: ly },
+              thickness: 0.8,
+              color: rgb(0.2, 0.2, 0.2)
+            });
+          }
+
+          for (let bar = 0; bar <= 4; bar++) {
+            const bx = 120 + bar * ((width - 168) / 4);
+            page.drawLine({
+              start: { x: bx, y: baseY },
+              end: { x: bx, y: baseY - 24 },
+              thickness: bar === 4 ? 1.8 : 0.9,
+              color: rgb(0.1, 0.1, 0.1)
+            });
+
+            if (bar < 4) {
+              for (let n = 0; n < 4; n++) {
+                const nx = bx + 18 + n * 22;
+                const ny = baseY - ((i + s + n) % 5) * 6;
+                page.drawEllipse({
+                  x: nx, y: ny, xScale: 4.2, yScale: 3.1, color: rgb(0.08, 0.08, 0.08)
+                });
+                page.drawLine({
+                  start: { x: nx + 3.8, y: ny },
+                  end: { x: nx + 3.8, y: ny + 18 },
+                  thickness: 1.1,
+                  color: rgb(0.08, 0.08, 0.08)
+                });
+              }
+            }
+          }
+        }
+      }
+
+      const bytes = await doc.save();
+      return bytes.buffer;
+    }
+
+    // ==================== 見開きページ計算ロジック ====================
+    function getTotalSpreads() {
+      if (!state.totalPages) return 1;
+      if (!state.coverOffset) {
+        return Math.ceil(state.totalPages / 2);
+      } else {
+        return Math.floor(state.totalPages / 2) + 1;
+      }
+    }
+
+    function getSpreadPages(spreadIdx) {
+      if (!state.coverOffset) {
+        const left = spreadIdx * 2 + 1;
+        const right = spreadIdx * 2 + 2;
+        return {
+          leftPage: left <= state.totalPages ? left : null,
+          rightPage: right <= state.totalPages ? right : null
+        };
+      } else {
+        if (spreadIdx === 0) {
+          return { leftPage: null, rightPage: state.totalPages >= 1 ? 1 : null };
+        }
+        const left = spreadIdx * 2;
+        const right = spreadIdx * 2 + 1;
+        return {
+          leftPage: left <= state.totalPages ? left : null,
+          rightPage: right <= state.totalPages ? right : null
+        };
+      }
+    }
+
+    function findSpreadIndexForPage(pageNum) {
+      if (!state.coverOffset) {
+        return Math.floor((pageNum - 1) / 2);
+      } else {
+        if (pageNum <= 1) return 0;
+        return Math.floor(pageNum / 2);
+      }
+    }
+
+    // ==================== PDF読み込み & レンダリング ====================
+    function isValidPdfHeader(arrayBuffer) {
+      if (!arrayBuffer || arrayBuffer.byteLength < 5) return false;
+      const head = new Uint8Array(arrayBuffer.slice(0, 8));
+      const str = String.fromCharCode.apply(null, head);
+      return str.indexOf('%PDF-') !== -1;
+    }
+
+    async function loadPdfFromBuffer(arrayBuffer, fileName) {
+      if (!window.pdfjsLib) {
+        showToast('PDF表示エンジンの読み込みに失敗しました。再読み込みしてください。', 'error');
+        return;
+      }
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        showToast('空のファイルです。別のPDFを選択してください。', 'error');
+        return;
+      }
+      if (!isValidPdfHeader(arrayBuffer)) {
+        showToast('有効なPDFファイルではないようです。PDF形式をご確認ください。', 'error');
+        return;
+      }
+
+      setLoading(true, '楽譜PDFを読み込み中...');
+      try {
+        const bufferCopy = arrayBuffer.slice(0);
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
+        const doc = await loadingTask.promise;
+
+        state.pdfBuffer = bufferCopy;
+        state.fileName = fileName || 'Score.pdf';
+        state.annotations = {};
+        state.bookmarks = [];
+        renderBookmarkChips();
+
+        state.pdfDoc = doc;
+        state.totalPages = doc.numPages;
+        state.spreadIndex = 0;
+
+        els.fileTitleFooter.textContent = `${state.fileName}（タップでページ一覧）`;
+        updateSliderRange();
+        await renderCurrentView();
+        setLoading(false);
+
+        saveScoreToLibrary(state.fileName, state.pdfBuffer, state.totalPages);
+      } catch (err) {
+        console.error('PDF読み込みエラー:', err);
+        setLoading(false);
+        const msg = (err && err.name === 'PasswordException')
+          ? 'パスワード保護されたPDFには対応していません。'
+          : 'PDFの読み込みに失敗しました。破損していないPDFをお試しください。';
+        showToast(msg, 'error');
+      }
+    }
+
+    async function handleSelectedPdfFile(file) {
+      if (!file) return;
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+      if (!isPdf && file.type) {
+        showToast('PDFファイル（.pdf）を選択してください。', 'warn');
+        return;
+      }
+
+      els.selectedFileName.textContent = file.name || 'Score.pdf';
+      els.btnLaunchHost.disabled = false;
+
+      try {
+        const buf = await file.arrayBuffer();
+        enterViewerMode('host');
+        await loadPdfFromBuffer(buf, file.name || 'Score.pdf');
+        if (state.pdfDoc) {
+          showToast(`「${state.fileName}」を開きました`, 'success');
+        }
+      } catch (err) {
+        console.error('ファイル読み取りエラー:', err);
+        showToast('ファイルの読み取りに失敗しました。「ファイル」アプリに保存してからお試しください。', 'error');
+      }
+    }
+
+    async function renderPageToCanvas(pageNum, canvas, maxWidth, maxHeight) {
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!pageNum || !state.pdfDoc || pageNum < 1 || pageNum > state.totalPages) {
+        canvas.width = 1;
+        canvas.height = 1;
+        canvas.style.display = 'none';
+        return false;
+      }
+
+      canvas.style.display = 'block';
+      const page = await state.pdfDoc.getPage(pageNum);
+      const baseViewport = page.getViewport({ scale: 1.0 });
+
+      const cropMultiplier = state.cropMargins ? 1.14 : 0.998;
+      const safeW = Math.max(120, maxWidth);
+      const safeH = Math.max(120, maxHeight);
+      const scaleX = (safeW / baseViewport.width) * cropMultiplier;
+      const scaleY = (safeH / baseViewport.height) * cropMultiplier;
+      const fitScale = Math.min(scaleX, scaleY);
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const renderViewport = page.getViewport({ scale: fitScale * dpr });
+
+      canvas.width = Math.max(1, Math.floor(renderViewport.width));
+      canvas.height = Math.max(1, Math.floor(renderViewport.height));
+      canvas.style.width = `${Math.max(1, Math.floor(renderViewport.width / dpr))}px`;
+      canvas.style.height = `${Math.max(1, Math.floor(renderViewport.height / dpr))}px`;
+
+      await page.render({
+        canvasContext: ctx,
+        viewport: renderViewport
+      }).promise;
+
+      page.cleanup();
+      return true;
+    }
+
+    async function renderCurrentView() {
+      if (!state.pdfDoc) return;
+
+      const totalSpreads = getTotalSpreads();
+      if (state.spreadIndex >= totalSpreads) state.spreadIndex = Math.max(0, totalSpreads - 1);
+      if (state.spreadIndex < 0) state.spreadIndex = 0;
+
+      const { leftPage, rightPage } = getSpreadPages(state.spreadIndex);
+      const vw = els.canvasViewport.clientWidth || window.innerWidth;
+      const vh = els.canvasViewport.clientHeight || window.innerHeight;
+
+      if (state.role === 'demo') {
+        els.singlePageWrapper.classList.add('hidden');
+        els.splitSimWrapper.classList.remove('hidden');
+
+        const halfW = (vw / 2) - 3;
+        await renderPageToCanvas(leftPage, els.pdfCanvasSimLeft, halfW, vh - 2);
+        syncDrawCanvasSize(els.pdfCanvasSimLeft, els.drawCanvasSimLeft);
+        redrawAnnotationsForPage(leftPage, els.drawCanvasSimLeft);
+
+        await renderPageToCanvas(rightPage, els.pdfCanvasSimRight, halfW, vh - 2);
+        syncDrawCanvasSize(els.pdfCanvasSimRight, els.drawCanvasSimRight);
+        redrawAnnotationsForPage(rightPage, els.drawCanvasSimRight);
+      } else {
+        els.splitSimWrapper.classList.add('hidden');
+        els.singlePageWrapper.classList.remove('hidden');
+
+        const targetPage = state.role === 'client' ? rightPage : leftPage;
+        const rendered = await renderPageToCanvas(targetPage, els.pdfCanvasSingle, vw - 2, vh - 2);
+        if (!rendered) {
+          els.blankPageNotice.classList.remove('hidden');
+          els.drawCanvasSingle.style.display = 'none';
+        } else {
+          els.blankPageNotice.classList.add('hidden');
+          els.drawCanvasSingle.style.display = 'block';
+          syncDrawCanvasSize(els.pdfCanvasSingle, els.drawCanvasSingle);
+          redrawAnnotationsForPage(targetPage, els.drawCanvasSingle);
+        }
+      }
+
+      const leftStr = leftPage ? leftPage : '表紙裏';
+      const rightStr = rightPage ? rightPage : '終';
+      els.pageIndicatorText.textContent = `P. ${leftStr} - ${rightStr} / ${state.totalPages}`;
+      els.pageSlider.value = state.spreadIndex + 1;
+
+      applyBezelTransform();
+    }
+
+    function updateSliderRange() {
+      const total = getTotalSpreads();
+      els.pageSlider.max = Math.max(1, total);
+      els.pageSlider.value = state.spreadIndex + 1;
+    }
+
+    // ==================== ページ送り & 同期制御 ====================
+    function goToSpread(newIndex, broadcast = true) {
+      if (!state.pdfDoc) return;
+      const maxIdx = getTotalSpreads() - 1;
+      const clamped = Math.max(0, Math.min(maxIdx, newIndex));
+      if (clamped === state.spreadIndex && broadcast) return;
+
+      state.spreadIndex = clamped;
+      els.canvasViewport.classList.remove('page-turn-anim');
+      void els.canvasViewport.offsetWidth;
+      els.canvasViewport.classList.add('page-turn-anim');
+
+      renderCurrentView();
+      if (broadcast) {
+        sendPeerMessage({
+          type: 'SYNC_STATE',
+          spreadIndex: state.spreadIndex,
+          coverOffset: state.coverOffset
+        });
+      }
+    }
+
+    function nextSpread() {
+      if (state.isLocked) {
+        showToast('ロック中です。中央ダブルタップでメニューを開き解除してください', 'warn');
+        return;
+      }
+      triggerEdgeFlash('next');
+      goToSpread(state.spreadIndex + 1, true);
+    }
+
+    function prevSpread() {
+      if (state.isLocked) {
+        showToast('ロック中です。中央ダブルタップでメニューを開き解除してください', 'warn');
+        return;
+      }
+      triggerEdgeFlash('prev');
+      goToSpread(state.spreadIndex - 1, true);
+    }
+
+    function toggleCoverOffset(broadcast = true) {
+      state.coverOffset = !state.coverOffset;
+      els.offsetLabel.textContent = state.coverOffset ? '表紙あり (1 | 2-3)' : '表紙なし (1-2)';
+      updateSliderRange();
+      renderCurrentView();
+      if (broadcast) {
+        sendPeerMessage({
+          type: 'SYNC_STATE',
+          spreadIndex: state.spreadIndex,
+          coverOffset: state.coverOffset
+        });
+        showToast(state.coverOffset ? '表紙ありモード（1ページずらし）' : '表紙なしモード', 'info');
+      }
+    }
+
+    // ==================== 赤ペン＆蛍光マーカー書き込み同期 ====================
+    function syncDrawCanvasSize(pdfCanvas, drawCanvas) {
+      drawCanvas.width = pdfCanvas.width;
+      drawCanvas.height = pdfCanvas.height;
+      drawCanvas.style.width = pdfCanvas.style.width;
+      drawCanvas.style.height = pdfCanvas.style.height;
+    }
+
+    function getActivePageNumberForSingle() {
+      const { leftPage, rightPage } = getSpreadPages(state.spreadIndex);
+      return state.role === 'client' ? rightPage : leftPage;
+    }
+
+    function redrawAnnotationsForPage(pageNum, drawCanvas) {
+      const ctx = drawCanvas.getContext('2d');
+      ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      if (!pageNum || !state.annotations[pageNum]) return;
+
+      const strokes = state.annotations[pageNum];
+      for (const stroke of strokes) {
+        if (!stroke.points || stroke.points.length === 0) continue;
+        ctx.save();
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = Math.max(2, stroke.width * drawCanvas.width);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        if (stroke.color === 'rgba(252, 211, 77, 0.45)') {
+          ctx.globalCompositeOperation = 'multiply';
+        }
+        ctx.beginPath();
+        const p0 = stroke.points[0];
+        ctx.moveTo(p0.x * drawCanvas.width, p0.y * drawCanvas.height);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x * drawCanvas.width, stroke.points[i].y * drawCanvas.height);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function setDrawMode(enabled) {
+      state.drawMode = enabled;
+      if (enabled) {
+        setControlOverlayOpen(false);
+        els.drawToolbar.classList.remove('hidden');
+        els.btnToggleDrawMode.classList.add('bg-rose-500/20', 'border-rose-500/50', 'text-rose-300');
+        els.drawCanvasSingle.classList.remove('pointer-events-none');
+        els.drawCanvasSimLeft.classList.remove('pointer-events-none');
+        els.drawCanvasSimRight.classList.remove('pointer-events-none');
+        els.tapZonePrev.classList.add('pointer-events-none');
+        els.tapZoneCenter.classList.add('pointer-events-none');
+        els.tapZoneNext.classList.add('pointer-events-none');
+        showToast('赤ペン書き込みモードON（完了で楽譜画面に戻ります）', 'info');
+      } else {
+        els.drawToolbar.classList.add('hidden');
+        els.btnToggleDrawMode.classList.remove('bg-rose-500/20', 'border-rose-500/50', 'text-rose-300');
+        els.drawCanvasSingle.classList.add('pointer-events-none');
+        els.drawCanvasSimLeft.classList.add('pointer-events-none');
+        els.drawCanvasSimRight.classList.add('pointer-events-none');
+        els.tapZonePrev.classList.remove('pointer-events-none');
+        els.tapZoneCenter.classList.remove('pointer-events-none');
+        els.tapZoneNext.classList.remove('pointer-events-none');
+      }
+    }
+
+    function bindDrawingEvents(drawCanvas, getPageNumFn) {
+      const getNormPos = (e) => {
+        const rect = drawCanvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+        return {
+          x: Math.max(0, Math.min(1, (clientX - rect.left) / w)),
+          y: Math.max(0, Math.min(1, (clientY - rect.top) / h))
+        };
+      };
+
+      const startStroke = (e) => {
+        if (!state.drawMode) return;
+        const pageNum = getPageNumFn();
+        if (!pageNum) return;
+        e.preventDefault();
+        const pos = getNormPos(e);
+        if (!state.annotations[pageNum]) state.annotations[pageNum] = [];
+        state.currentStroke = {
+          pageNum,
+          color: state.penColor,
+          width: state.penColor.startsWith('rgba') ? 0.018 : 0.0045,
+          points: [pos]
+        };
+        state.annotations[pageNum].push(state.currentStroke);
+        redrawAnnotationsForPage(pageNum, drawCanvas);
+      };
+
+      const moveStroke = (e) => {
+        if (!state.drawMode || !state.currentStroke) return;
+        e.preventDefault();
+        const pos = getNormPos(e);
+        state.currentStroke.points.push(pos);
+        redrawAnnotationsForPage(state.currentStroke.pageNum, drawCanvas);
+      };
+
+      const endStroke = () => {
+        if (!state.currentStroke) return;
+        const finished = state.currentStroke;
+        state.currentStroke = null;
+        sendPeerMessage({
+          type: 'ADD_STROKE',
+          pageNum: finished.pageNum,
+          stroke: {
+            color: finished.color,
+            width: finished.width,
+            points: finished.points
+          }
+        });
+      };
+
+      drawCanvas.addEventListener('mousedown', startStroke);
+      drawCanvas.addEventListener('mousemove', moveStroke);
+      window.addEventListener('mouseup', endStroke);
+
+      drawCanvas.addEventListener('touchstart', startStroke, { passive: false });
+      drawCanvas.addEventListener('touchmove', moveStroke, { passive: false });
+      window.addEventListener('touchend', endStroke);
+    }
+
+    // ==================== 練習番号ブックマーク ====================
+    function renderBookmarkChips() {
+      if (state.bookmarks.length === 0) {
+        els.bookmarkBar.classList.add('hidden');
+        return;
+      }
+      els.bookmarkBar.classList.remove('hidden');
+      els.bookmarkChipsContainer.innerHTML = '';
+
+      state.bookmarks.forEach((bm, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-lime-500/15 border border-lime-500/35 text-xs font-bold text-lime-300 shrink-0';
+        chip.innerHTML = `
+          <button type="button" class="min-h-[28px] hover:text-white">${bm.label} <span class="text-[10px] font-normal text-lime-400/75">(${bm.pageDesc})</span></button>
+          <button type="button" aria-label="${bm.label}を削除" class="ml-0.5 w-6 h-6 flex items-center justify-center text-lime-400/60 hover:text-rose-400 text-xs">✕</button>
+        `;
+        chip.children[0].addEventListener('click', () => {
+          setControlOverlayOpen(false);
+          goToSpread(bm.spreadIndex, true);
+        });
+        chip.children[1].addEventListener('click', () => {
+          state.bookmarks.splice(idx, 1);
+          renderBookmarkChips();
+          sendPeerMessage({ type: 'SYNC_BOOKMARKS', bookmarks: state.bookmarks });
+        });
+        els.bookmarkChipsContainer.appendChild(chip);
+      });
+    }
+
+    // ==================== 全ページサムネイル一覧モーダル ====================
+    async function openThumbnailsModal() {
+      if (!state.pdfDoc) return;
+      setControlOverlayOpen(false);
+      els.thumbnailModal.classList.remove('hidden');
+      els.thumbTotalBadge.textContent = `全 ${state.totalPages} ページ`;
+      els.thumbnailGrid.innerHTML = '';
+
+      const { leftPage, rightPage } = getSpreadPages(state.spreadIndex);
+
+      for (let p = 1; p <= state.totalPages; p++) {
+        const isCurrent = (p === leftPage || p === rightPage);
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = `flex flex-col items-center p-2 rounded-xl border transition text-left ${
+          isCurrent
+            ? 'bg-lime-500/15 border-lime-400 ring-2 ring-lime-400/40'
+            : 'bg-slate-900/90 border-slate-800 hover:border-slate-600'
+        }`;
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'w-full h-auto rounded-lg bg-white shadow mb-1.5';
+        const label = document.createElement('div');
+        label.className = `text-xs font-bold ${isCurrent ? 'text-lime-300' : 'text-slate-300'}`;
+        label.textContent = `P. ${p}${isCurrent ? ' (表示中)' : ''}`;
+
+        card.appendChild(canvas);
+        card.appendChild(label);
+        card.addEventListener('click', () => {
+          const targetSpread = findSpreadIndexForPage(p);
+          els.thumbnailModal.classList.add('hidden');
+          goToSpread(targetSpread, true);
+        });
+        els.thumbnailGrid.appendChild(card);
+
+        state.pdfDoc.getPage(p).then(async (page) => {
+          const vp = page.getViewport({ scale: 0.28 });
+          canvas.width = vp.width;
+          canvas.height = vp.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          page.cleanup();
+        }).catch(() => {});
+      }
+    }
+
+    // ==================== ベゼル・表示位置微調整 ====================
+    function applyBezelTransform() {
+      els.singlePageWrapper.style.transform = `translate(${state.offsetX}px, ${state.offsetY}px)`;
+    }
+
+    // ==================== WebRTC (PeerJS) P2P通信 ====================
+    const PEER_PREFIX = 'scoresync-stage-v2-';
+
+    function generateRoomCode() {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    function sendPeerMessage(payload) {
+      if (state.conn && state.conn.open) {
+        try {
+          state.conn.send(payload);
+        } catch (err) {
+          console.warn('P2P送信エラー:', err);
+        }
+      }
+    }
+
+    function startPingMonitor() {
+      stopPingMonitor();
+      state.pingInterval = setInterval(() => {
+        if (state.conn && state.conn.open) {
+          state.lastPingTime = performance.now();
+          sendPeerMessage({ type: 'PING', ts: state.lastPingTime });
+        }
+      }, 3000);
+    }
+
+    function stopPingMonitor() {
+      if (state.pingInterval) {
+        clearInterval(state.pingInterval);
+        state.pingInterval = null;
+      }
+    }
+
+    async function sendPdfInChunks(conn, arrayBuffer, fileName) {
+      const CHUNK_SIZE = 64 * 1024;
+      const totalBytes = arrayBuffer.byteLength;
+      const totalChunks = Math.ceil(totalBytes / CHUNK_SIZE);
+
+      conn.send({
+        type: 'PDF_META',
+        fileName,
+        totalChunks,
+        totalBytes
+      });
+
+      const uint8 = new Uint8Array(arrayBuffer);
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(totalBytes, start + CHUNK_SIZE);
+        const slice = uint8.slice(start, end).buffer;
+        conn.send({
+          type: 'PDF_CHUNK',
+          index: i,
+          data: slice
+        });
+        if (i % 8 === 0) {
+          await new Promise((r) => setTimeout(r, 8));
+        }
+      }
+
+      conn.send({
+        type: 'PDF_COMPLETE',
+        spreadIndex: state.spreadIndex,
+        coverOffset: state.coverOffset,
+        annotations: state.annotations,
+        bookmarks: state.bookmarks
+      });
+    }
+
+    function buildShortRoomUrl(code) {
+      const baseUrl = window.location.href.split('?')[0].split('#')[0];
+      return `${baseUrl}?r=${code}`;
+    }
+
+    function renderScannableQrCode(code) {
+      els.qrcodeContainer.innerHTML = '';
+      if (!window.QRCode) {
+        els.qrcodeContainer.innerHTML = `<span class="text-xs font-bold text-slate-900">番号: ${code}</span>`;
+        return;
+      }
+
+      // 短いクエリ (?r=XXXX) でドット密度を下げ、十分な余白と大きめのサイズで生成
+      const shortPayload = buildShortRoomUrl(code);
+      const displaySize = 240;
+
+      try {
+        const tempHolder = document.createElement('div');
+        new QRCode(tempHolder, {
+          text: shortPayload,
+          width: displaySize,
+          height: displaySize,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.L
+        });
+
+        setTimeout(() => {
+          const srcCanvas = tempHolder.querySelector('canvas');
+          const srcImg = tempHolder.querySelector('img');
+          els.qrcodeContainer.innerHTML = '';
+
+          if (srcCanvas) {
+            srcCanvas.style.width = `${displaySize}px`;
+            srcCanvas.style.height = `${displaySize}px`;
+            srcCanvas.style.imageRendering = 'pixelated';
+            els.qrcodeContainer.appendChild(srcCanvas);
+          } else if (srcImg) {
+            srcImg.style.width = `${displaySize}px`;
+            srcImg.style.height = `${displaySize}px`;
+            srcImg.style.imageRendering = 'pixelated';
+            els.qrcodeContainer.appendChild(srcImg);
+          }
+        }, 0);
+      } catch (err) {
+        console.warn('QRコード生成エラー:', err);
+      }
+    }
+
+    function initHostPeer() {
+      if (!window.Peer) {
+        updateConnectionUI(false, 'P2P通信ライブラリの読み込みに失敗しました');
+        return;
+      }
+      destroyPeer();
+      state.roomCode = generateRoomCode();
+      els.displayRoomCode.textContent = state.roomCode;
+      updateConnectionUI(false, `ルーム ${state.roomCode} 待機中`);
+      renderScannableQrCode(state.roomCode);
+
+      state.peer = new Peer(PEER_PREFIX + state.roomCode, { debug: 1 });
+
+      state.peer.on('open', () => {
+        els.pairStatusText.textContent = '右ページ端末の接続を待機中...';
+      });
+
+      state.peer.on('connection', (conn) => {
+        state.conn = conn;
+        setupConnectionHandlers(conn, 'host');
+      });
+
+      state.peer.on('disconnected', () => {
+        updateConnectionUI(false, 'シグナリング再接続中...');
+        scheduleReconnect('host');
+      });
+
+      state.peer.on('error', (err) => {
+        console.warn('Host Peer エラー:', err);
+        if (err && err.type === 'unavailable-id') {
+          initHostPeer();
+        } else {
+          updateConnectionUI(false, '再接続を試行中...');
+          scheduleReconnect('host');
+        }
+      });
+    }
+
+    function initClientPeer(code) {
+      if (!window.Peer) {
+        setLoading(false);
+        updateConnectionUI(false, 'P2P通信ライブラリの読み込みに失敗しました');
+        showToast('通信ライブラリの読み込みに失敗しました', 'error');
+        return;
+      }
+      destroyPeer();
+      state.roomCode = code;
+      updateConnectionUI(false, `ルーム ${code} に接続中...`);
+      setLoading(true, `左ページ端末 (ルーム ${code}) に接続中...`);
+
+      const clientId = `${PEER_PREFIX}client-${code}-${Math.floor(1000 + Math.random() * 9000)}`;
+      state.peer = new Peer(clientId, { debug: 1 });
+
+      state.peer.on('open', () => {
+        const conn = state.peer.connect(PEER_PREFIX + code, { reliable: true });
+        state.conn = conn;
+        setupConnectionHandlers(conn, 'client');
+      });
+
+      state.peer.on('disconnected', () => {
+        updateConnectionUI(false, '再接続中...');
+        scheduleReconnect('client');
+      });
+
+      state.peer.on('error', (err) => {
+        console.warn('Client Peer エラー:', err);
+        setLoading(false);
+        updateConnectionUI(false, `ルーム ${code} が見つからないか切断されました`);
+        showToast('ルームが見つかりません。4桁番号を確認してください。', 'error');
+      });
+    }
+
+    function scheduleReconnect(role) {
+      if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = setTimeout(() => {
+        if (state.role !== role) return;
+        if (role === 'host' && state.peer && state.peer.disconnected) {
+          state.peer.reconnect();
+        } else if (role === 'client' && state.roomCode && !state.isConnected) {
+          initClientPeer(state.roomCode);
+        }
+      }, 2500);
+    }
+
+    function setupConnectionHandlers(conn, role) {
+      conn.on('open', async () => {
+        state.isConnected = true;
+        updateConnectionUI(true, role === 'host' ? '右ページと同期中' : '左ページと同期中');
+        els.pairModal.classList.add('hidden');
+        els.pairStatusText.textContent = '右ページ端末と接続しました！';
+        startPingMonitor();
+
+        if (state.localBattery) {
+          sendPeerMessage({ type: 'BATTERY_STATUS', battery: state.localBattery });
+        }
+
+        if (role === 'host' && state.pdfBuffer) {
+          showToast('右ページ端末と接続しました。楽譜を送信中...', 'success');
+          await sendPdfInChunks(conn, state.pdfBuffer, state.fileName);
+        } else if (role === 'client') {
+          setLoading(true, '左ページ端末から楽譜を受信中...', 5);
+        }
+      });
+
+      conn.on('data', async (msg) => {
+        if (!msg || !msg.type) return;
+
+        switch (msg.type) {
+          case 'PING':
+            sendPeerMessage({ type: 'PONG', ts: msg.ts });
+            break;
+
+          case 'PONG': {
+            const rtt = Math.round(performance.now() - msg.ts);
+            els.pingBadge.textContent = `${rtt}ms`;
+            els.pingBadge.classList.remove('hidden');
+            break;
+          }
+
+          case 'BATTERY_STATUS':
+            updateRemoteBatteryUI(msg.battery);
+            break;
+
+          case 'PDF_META':
+            state.incomingChunks = new Array(msg.totalChunks);
+            state.incomingTotalChunks = msg.totalChunks;
+            state.incomingFileName = msg.fileName || 'SyncedScore.pdf';
+            setLoading(true, `楽譜を受信中 (${msg.fileName})...`, 5);
+            break;
+
+          case 'PDF_CHUNK': {
+            state.incomingChunks[msg.index] = new Uint8Array(msg.data);
+            const receivedCount = state.incomingChunks.filter(Boolean).length;
+            const pct = Math.round((receivedCount / Math.max(1, state.incomingTotalChunks)) * 95);
+            setLoading(true, `楽譜データを転送中... ${pct}%`, pct);
+            break;
+          }
+
+          case 'PDF_COMPLETE': {
+            setLoading(true, '楽譜を展開中...', 98);
+            const totalLen = state.incomingChunks.reduce((acc, c) => acc + (c ? c.byteLength : 0), 0);
+            const merged = new Uint8Array(totalLen);
+            let offset = 0;
+            for (const chunk of state.incomingChunks) {
+              if (chunk) {
+                merged.set(chunk, offset);
+                offset += chunk.byteLength;
+              }
+            }
+            await loadPdfFromBuffer(merged.buffer, state.incomingFileName);
+            if (typeof msg.coverOffset === 'boolean') {
+              state.coverOffset = msg.coverOffset;
+              els.offsetLabel.textContent = state.coverOffset ? '表紙あり (1 | 2-3)' : '表紙なし (1-2)';
+              updateSliderRange();
+            }
+            if (msg.annotations) state.annotations = msg.annotations;
+            if (msg.bookmarks) {
+              state.bookmarks = msg.bookmarks;
+              renderBookmarkChips();
+            }
+            if (typeof msg.spreadIndex === 'number') {
+              goToSpread(msg.spreadIndex, false);
+            } else {
+              await renderCurrentView();
+            }
+            setLoading(false);
+            showToast('右ページ（子機）の同期が完了しました', 'success');
+            break;
+          }
+
+          case 'SYNC_STATE':
+            if (typeof msg.coverOffset === 'boolean' && msg.coverOffset !== state.coverOffset) {
+              state.coverOffset = msg.coverOffset;
+              els.offsetLabel.textContent = state.coverOffset ? '表紙あり (1 | 2-3)' : '表紙なし (1-2)';
+              updateSliderRange();
+            }
+            if (typeof msg.spreadIndex === 'number') {
+              goToSpread(msg.spreadIndex, false);
+            }
+            break;
+
+          case 'ADD_STROKE':
+            if (msg.pageNum && msg.stroke) {
+              if (!state.annotations[msg.pageNum]) state.annotations[msg.pageNum] = [];
+              state.annotations[msg.pageNum].push(msg.stroke);
+              renderCurrentView();
+            }
+            break;
+
+          case 'SYNC_ANNOTATIONS':
+            if (msg.annotations) {
+              state.annotations = msg.annotations;
+              renderCurrentView();
+            }
+            break;
+
+          case 'SYNC_BOOKMARKS':
+            if (msg.bookmarks) {
+              state.bookmarks = msg.bookmarks;
+              renderBookmarkChips();
+            }
+            break;
+        }
+      });
+
+      conn.on('close', () => {
+        state.isConnected = false;
+        stopPingMonitor();
+        els.pingBadge.classList.add('hidden');
+        updateConnectionUI(false, '接続が切れました。自動再接続中...');
+        scheduleReconnect(role);
+      });
+
+      conn.on('error', () => {
+        state.isConnected = false;
+        updateConnectionUI(false, '通信エラーが発生しました');
+        scheduleReconnect(role);
+      });
+    }
+
+    function destroyPeer() {
+      stopPingMonitor();
+      if (state.reconnectTimer) {
+        clearTimeout(state.reconnectTimer);
+        state.reconnectTimer = null;
+      }
+      if (state.conn) {
+        try { state.conn.close(); } catch (_) {}
+        state.conn = null;
+      }
+      if (state.peer) {
+        try { state.peer.destroy(); } catch (_) {}
+        state.peer = null;
+      }
+      state.isConnected = false;
+    }
+
+    function updateConnectionUI(connected, subText) {
+      state.isConnected = connected;
+      if (state.role === 'demo') {
+        els.statusDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
+        els.roleBadgeText.textContent = '1台見開きテスト';
+        els.connectionSubText.textContent = '左右2画面プレビュー';
+        return;
+      }
+
+      els.roleBadgeText.textContent = state.role === 'client' ? '右ページ (子機)' : '左ページ (親機)';
+      if (connected) {
+        els.statusDot.className = 'w-2.5 h-2.5 rounded-full bg-lime-400';
+        els.connectionSubText.textContent = subText || `ルーム ${state.roomCode} 接続中`;
+      } else {
+        els.statusDot.className = 'w-2.5 h-2.5 rounded-full bg-lime-400 animate-pulse';
+        els.connectionSubText.textContent = subText || '待機中';
+      }
+    }
+
+    // ==================== 画面遷移制御 ====================
+    function enterViewerMode(role) {
+      state.role = role;
+      setControlOverlayOpen(false);
+      setDrawMode(false);
+      els.setupScreen.classList.add('hidden');
+      els.viewerScreen.classList.remove('hidden');
+      els.viewerScreen.classList.add('flex');
+      updateConnectionUI(false, role === 'demo' ? '左右2画面プレビュー' : '接続準備中...');
+      requestWakeLock(true);
+      maybeShowFirstTimeHint();
+    }
+
+    function performExitToSetup() {
+      destroyPeer();
+      setDrawMode(false);
+      setControlOverlayOpen(false);
+      setLoading(false);
+      state.pdfDoc = null;
+      state.role = null;
+      els.viewerScreen.classList.add('hidden');
+      els.viewerScreen.classList.remove('flex');
+      els.setupScreen.classList.remove('hidden');
+      renderRecentScoresList();
+    }
+
+    // ==================== イベントリスナー登録 ====================
+    // ファイル選択（change と input の両方で確実に検知し、再選択にも対応）
+    els.pdfFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        await handleSelectedPdfFile(file);
+        e.target.value = '';
+      }
+    });
+
+    // サンプルスコアで左ページ開始
+    els.btnStartSampleHost.addEventListener('click', async () => {
+      try {
+        setLoading(true, 'サンプル吹奏楽スコアを生成中...');
+        const buf = await generateSampleWindBandPdf();
+        setLoading(false);
+        enterViewerMode('host');
+        await loadPdfFromBuffer(buf, 'Sym唤醒_吹奏楽サンプルスコア.pdf'.replace('唤醒', '響'));
+        initHostPeer();
+        els.pairModal.classList.remove('hidden');
+        showToast('サンプルスコアを開きました。右ページ端末と接続できます', 'success');
+      } catch (err) {
+        console.error('サンプル生成エラー:', err);
+        setLoading(false);
+        showToast(err && err.message ? err.message : 'サンプルスコアの生成に失敗しました', 'error');
+      }
+    });
+
+    // 選択済みPDFで左ページ開始
+    els.btnLaunchHost.addEventListener('click', async () => {
+      const file = els.pdfFileInput.files && els.pdfFileInput.files[0];
+      if (!file && !state.pdfBuffer) {
+        showToast('先にPDFファイルを選択してください', 'warn');
+        return;
+      }
+      enterViewerMode('host');
+      if (file) {
+        await loadPdfFromBuffer(await file.arrayBuffer(), file.name);
+      }
+      initHostPeer();
+      els.pairModal.classList.remove('hidden');
+    });
+
+    // 1台で見開きシミュレーション
+    els.btnDemoSplit.addEventListener('click', async () => {
+      try {
+        setLoading(true, '見開きテスト用スコアを準備中...');
+        const buf = state.pdfBuffer ? state.pdfBuffer.slice(0) : await generateSampleWindBandPdf();
+        const name = state.pdfBuffer ? state.fileName : 'Sym響_吹奏楽サンプルスコア.pdf';
+        setLoading(false);
+        enterViewerMode('demo');
+        await loadPdfFromBuffer(buf, name);
+        showToast('1台で見開きテストを開始しました', 'info');
+      } catch (err) {
+        console.error('デモ起動エラー:', err);
+        setLoading(false);
+        showToast('見開きテストの起動に失敗しました', 'error');
+      }
+    });
+
+    // 右ページ（子機）として接続
+    els.btnJoinClient.addEventListener('click', () => {
+      const code = els.roomIdInput.value.replace(/\D/g, '').trim();
+      if (!/^\d{4}$/.test(code)) {
+        showToast('4桁のルーム番号を入力してください', 'warn');
+        els.roomIdInput.focus();
+        return;
+      }
+      enterViewerMode('client');
+      initClientPeer(code);
+    });
+
+    els.roomIdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        els.btnJoinClient.click();
+      }
+    });
+
+    // ペアリングモーダル操作
+    els.btnClosePairModal.addEventListener('click', () => els.pairModal.classList.add('hidden'));
+    els.btnOpenPairFromHud.addEventListener('click', () => {
+      setControlOverlayOpen(false);
+      if (state.role === 'host') {
+        if (!state.peer || state.peer.destroyed) {
+          initHostPeer();
+        } else {
+          renderScannableQrCode(state.roomCode);
+        }
+        els.pairModal.classList.remove('hidden');
+      } else {
+        showToast(state.connectionSubText.textContent || '接続状態を確認中', 'info');
+      }
+    });
+
+    els.btnCopyRoomUrl.addEventListener('click', () => {
+      const url = buildShortRoomUrl(state.roomCode);
+      const temp = document.createElement('textarea');
+      temp.value = url;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      showToast('右ページ接続用URLをコピーしました', 'success');
+    });
+
+    // オーバーレイ操作
+    els.btnCloseControlOverlay.addEventListener('click', () => setControlOverlayOpen(false));
+    els.btnOpenThumbnailsQuick.addEventListener('click', openThumbnailsModal);
+
+    // 危険操作の2段階確認
+    els.btnBackToSetup.addEventListener('click', () => {
+      if (state.isLocked) {
+        showToast('誤タップロック中です。先にロックを解除してください', 'warn');
+        return;
+      }
+      if (!state.exitArmed) {
+        state.exitArmed = true;
+        els.exitConfirmHint.classList.remove('hidden');
+        els.btnCancelExit.classList.remove('hidden');
+        els.btnBackToSetup.textContent = '本当に終了する';
+        els.btnBackToSetup.className = 'min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold transition';
+        return;
+      }
+      performExitToSetup();
+    });
+
+    els.btnCancelExit.addEventListener('click', () => {
+      resetExitConfirmation();
+      els.btnBackToSetup.className = 'min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-950/70 hover:bg-rose-900/80 text-rose-300 border border-rose-500/35 text-xs font-bold transition';
+    });
+
+    els.btnShareScore.addEventListener('click', () => {
+      shareCurrentPdfToExternalApp();
+    });
+
+    els.btnToggleOffset.addEventListener('click', () => {
+      toggleCoverOffset(true);
+    });
+
+    els.btnToggleCrop.addEventListener('click', () => {
+      state.cropMargins = !state.cropMargins;
+      els.btnToggleCrop.classList.toggle('bg-slate-500/20', state.cropMargins);
+      els.btnToggleCrop.classList.toggle('border-slate-500/50', state.cropMargins);
+      els.btnToggleCrop.classList.toggle('text-slate-200', state.cropMargins);
+      renderCurrentView();
+      showToast(state.cropMargins ? '余白カット拡大表示をONにしました' : '標準余白表示に戻しました', 'info');
+    });
+
+    els.btnToggleNightScore.addEventListener('click', () => {
+      state.nightScore = !state.nightScore;
+      els.pdfCanvasSingle.classList.toggle('night-score-filter', state.nightScore);
+      els.pdfCanvasSimLeft.classList.toggle('night-score-filter', state.nightScore);
+      els.pdfCanvasSimRight.classList.toggle('night-score-filter', state.nightScore);
+      els.btnToggleNightScore.classList.toggle('bg-slate-500/20', state.nightScore);
+      els.btnToggleNightScore.classList.toggle('border-slate-500/50', state.nightScore);
+      els.btnToggleNightScore.classList.toggle('text-slate-200', state.nightScore);
+      showToast(state.nightScore ? '暗転カラー反転モードON' : '通常カラー表示に戻しました', 'info');
+    });
+
+    els.btnToggleLock.addEventListener('click', () => {
+      state.isLocked = !state.isLocked;
+      els.iconLockOpen.classList.toggle('hidden', state.isLocked);
+      els.iconLockClosed.classList.toggle('hidden', !state.isLocked);
+      els.lockStatusLabel.textContent = state.isLocked ? '誤タップロック: ON' : '誤タップロック: OFF';
+      els.btnToggleLock.classList.toggle('bg-rose-500/20', state.isLocked);
+      els.btnToggleLock.classList.toggle('border-rose-500/50', state.isLocked);
+      els.btnToggleLock.classList.toggle('text-rose-200', state.isLocked);
+      showToast(state.isLocked ? '誤タップ防止ロックをONにしました' : 'ロックを解除しました', state.isLocked ? 'warn' : 'success');
+    });
+
+    els.btnWakeLock.addEventListener('click', () => {
+      requestWakeLock(false);
+    });
+
+    // 赤ペン書き込みモード操作
+    els.btnToggleDrawMode.addEventListener('click', () => setDrawMode(!state.drawMode));
+    els.btnExitDrawMode.addEventListener('click', () => setDrawMode(false));
+
+    els.penColorRed.addEventListener('click', () => {
+      state.penColor = '#f43f5e';
+      els.penColorRed.classList.add('ring-2', 'ring-white');
+      els.penColorYellow.classList.remove('ring-2', 'ring-white');
+      els.penColorCyan.classList.remove('ring-2', 'ring-white');
+    });
+    els.penColorYellow.addEventListener('click', () => {
+      state.penColor = 'rgba(252, 211, 77, 0.45)';
+      els.penColorYellow.classList.add('ring-2', 'ring-white');
+      els.penColorRed.classList.remove('ring-2', 'ring-white');
+      els.penColorCyan.classList.remove('ring-2', 'ring-white');
+    });
+    els.penColorCyan.addEventListener('click', () => {
+      state.penColor = '#22d3ee';
+      els.penColorCyan.classList.add('ring-2', 'ring-white');
+      els.penColorRed.classList.remove('ring-2', 'ring-white');
+      els.penColorYellow.classList.remove('ring-2', 'ring-white');
+    });
+
+    els.btnUndoDraw.addEventListener('click', () => {
+      const pageNum = state.role === 'demo'
+        ? getSpreadPages(state.spreadIndex).leftPage
+        : getActivePageNumberForSingle();
+      if (pageNum && state.annotations[pageNum]?.length > 0) {
+        state.annotations[pageNum].pop();
+        renderCurrentView();
+        sendPeerMessage({ type: 'SYNC_ANNOTATIONS', annotations: state.annotations });
+      }
+    });
+
+    els.btnClearDraw.addEventListener('click', () => {
+      const pageNum = state.role === 'demo'
+        ? getSpreadPages(state.spreadIndex).leftPage
+        : getActivePageNumberForSingle();
+      if (pageNum && state.annotations[pageNum]) {
+        delete state.annotations[pageNum];
+        renderCurrentView();
+        sendPeerMessage({ type: 'SYNC_ANNOTATIONS', annotations: state.annotations });
+        showToast('このページの書き込みを消去しました', 'info');
+      }
+    });
+
+    // 練習番号ブックマーク操作
+    els.btnAddBookmark.addEventListener('click', () => {
+      const { leftPage, rightPage } = getSpreadPages(state.spreadIndex);
+      const desc = `P.${leftPage || '-'}-${rightPage || '-'}`;
+      els.bookmarkPageDesc.textContent = `現在の見開き (${desc}) を登録します`;
+      els.bookmarkLabelInput.value = '';
+      els.bookmarkModal.classList.remove('hidden');
+      els.bookmarkLabelInput.focus();
+    });
+
+    document.querySelectorAll('.bm-preset').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        els.bookmarkLabelInput.value = btn.textContent.trim();
+      });
+    });
+
+    els.btnCancelBookmark.addEventListener('click', () => els.bookmarkModal.classList.add('hidden'));
+    els.btnSaveBookmark.addEventListener('click', () => {
+      const label = els.bookmarkLabelInput.value.trim() || `P.${state.spreadIndex * 2 + 1}`;
+      const { leftPage, rightPage } = getSpreadPages(state.spreadIndex);
+      const pageDesc = `${leftPage || '-'}-${rightPage || '-'}`;
+      state.bookmarks.push({ spreadIndex: state.spreadIndex, label, pageDesc });
+      renderBookmarkChips();
+      sendPeerMessage({ type: 'SYNC_BOOKMARKS', bookmarks: state.bookmarks });
+      els.bookmarkModal.classList.add('hidden');
+      showToast(`練習番号「${label}」を登録しました`, 'success');
+    });
+
+    // サムネイル一覧モーダル操作
+    els.btnOpenThumbnails.addEventListener('click', openThumbnailsModal);
+    els.btnCloseThumbModal.addEventListener('click', () => els.thumbnailModal.classList.add('hidden'));
+
+    // ベゼル・表示位置微調整パネル操作
+    els.btnToggleBezelPanel.addEventListener('click', () => {
+      els.bezelAdjustPanel.classList.toggle('hidden');
+    });
+    els.btnCloseBezelPanel.addEventListener('click', () => els.bezelAdjustPanel.classList.add('hidden'));
+    els.sliderOffsetX.addEventListener('input', (e) => {
+      state.offsetX = parseInt(e.target.value, 10) || 0;
+      els.offsetXVal.textContent = `${state.offsetX} px`;
+      applyBezelTransform();
+    });
+    els.sliderOffsetY.addEventListener('input', (e) => {
+      state.offsetY = parseInt(e.target.value, 10) || 0;
+      els.offsetYVal.textContent = `${state.offsetY} px`;
+      applyBezelTransform();
+    });
+    els.btnResetBezelOffset.addEventListener('click', () => {
+      state.offsetX = 0;
+      state.offsetY = 0;
+      els.sliderOffsetX.value = 0;
+      els.sliderOffsetY.value = 0;
+      els.offsetXVal.textContent = '0 px';
+      els.offsetYVal.textContent = '0 px';
+      applyBezelTransform();
+    });
+
+    // ページ送り＆スライダー＆タッチ操作
+    els.btnPrevSpread.addEventListener('click', () => prevSpread());
+    els.btnNextSpread.addEventListener('click', () => nextSpread());
+    els.tapZonePrev.addEventListener('click', () => {
+      if (!state.overlayOpen) prevSpread();
+    });
+    els.tapZoneNext.addEventListener('click', () => {
+      if (!state.overlayOpen) nextSpread();
+    });
+
+    // 中央エリアのダブルタップでコントロールオーバーレイを開閉
+    let lastCenterTapTime = 0;
+    els.tapZoneCenter.addEventListener('click', () => {
+      const now = Date.now();
+      if (now - lastCenterTapTime < 360) {
+        setControlOverlayOpen(!state.overlayOpen);
+        lastCenterTapTime = 0;
+      } else {
+        lastCenterTapTime = now;
+      }
+    });
+
+    els.pageSlider.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.value, 10) - 1;
+      goToSpread(idx, true);
+    });
+
+    // スワイプ＆2本指タップでコントロールオーバーレイ開閉
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let twoFingerTapTriggered = false;
+    els.canvasViewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length >= 2 && !state.drawMode) {
+        twoFingerTapTriggered = true;
+        setControlOverlayOpen(!state.overlayOpen);
+        return;
+      }
+      twoFingerTapTriggered = false;
+      if (state.drawMode || state.overlayOpen || e.touches.length !== 1) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    els.canvasViewport.addEventListener('touchend', (e) => {
+      if (twoFingerTapTriggered || state.drawMode || state.overlayOpen || e.changedTouches.length !== 1) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+        if (dx < 0) nextSpread();
+        else prevSpread();
+      }
+    }, { passive: true });
+
+    // キーボード / Bluetooth譜めくりペダル対応
+    window.addEventListener('keydown', (e) => {
+      if (els.viewerScreen.classList.contains('hidden')) return;
+      if (!els.bookmarkModal.classList.contains('hidden')) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (!els.thumbnailModal.classList.contains('hidden')) {
+          els.thumbnailModal.classList.add('hidden');
+          return;
+        }
+        setControlOverlayOpen(!state.overlayOpen);
+        return;
+      }
+
+      if (state.overlayOpen) return;
+
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault();
+        nextSpread();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSpread();
+      }
+    });
+
+    // リサイズ・画面回転時の再描画
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (!els.viewerScreen.classList.contains('hidden') && state.pdfDoc) {
+          renderCurrentView();
+        }
+      }, 150);
+    });
+
+    // Apple Books連携ガイドモーダル操作
+    els.btnOpenBooksGuide.addEventListener('click', () => {
+      const baseUrl = window.location.href.split('?')[0].split('#')[0];
+      els.shortcutReceiverUrl.value = `${baseUrl}?import=shortcut`;
+      els.booksGuideModal.classList.remove('hidden');
+    });
+    els.btnCloseBooksGuide.addEventListener('click', () => els.booksGuideModal.classList.add('hidden'));
+    els.btnConfirmBooksGuide.addEventListener('click', () => els.booksGuideModal.classList.add('hidden'));
+    els.btnCopyShortcutUrl.addEventListener('click', () => {
+      els.shortcutReceiverUrl.select();
+      document.execCommand('copy');
+      showToast('ショートカット用URLをコピーしました', 'success');
+    });
+
+    // 履歴削除ボタン
+    els.btnClearHistory.addEventListener('click', async () => {
+      try {
+        const db = await openScoreDb();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).clear();
+        await new Promise((res) => { tx.oncomplete = res; });
+        renderRecentScoresList();
+        showToast('保存済みの楽譜履歴を削除しました', 'info');
+      } catch (_) {}
+    });
+
+    // ドラッグ＆ドロップ受信
+    let dragCounter = 0;
+    window.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      els.dropZoneOverlay.classList.remove('hidden');
+      els.dropZoneOverlay.classList.add('flex');
+    });
+    window.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        els.dropZoneOverlay.classList.add('hidden');
+        els.dropZoneOverlay.classList.remove('flex');
+      }
+    });
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      els.dropZoneOverlay.classList.add('hidden');
+      els.dropZoneOverlay.classList.remove('flex');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) {
+        await handleSelectedPdfFile(file);
+      }
+    });
+
+    // ==================== 起動時初期化 ====================
+    window.addEventListener('DOMContentLoaded', async () => {
+      initBatteryMonitor();
+      renderRecentScoresList();
+
+      bindDrawingEvents(els.drawCanvasSingle, getActivePageNumberForSingle);
+      bindDrawingEvents(els.drawCanvasSimLeft, () => getSpreadPages(state.spreadIndex).leftPage);
+      bindDrawingEvents(els.drawCanvasSimRight, () => getSpreadPages(state.spreadIndex).rightPage);
+
+      const params = new URLSearchParams(window.location.search);
+
+      const autoRoom = params.get('r') || params.get('room');
+      if (autoRoom && /^\d{4}$/.test(autoRoom)) {
+        els.roomIdInput.value = autoRoom;
+        enterViewerMode('client');
+        initClientPeer(autoRoom);
+        return;
+      }
+
+      if (params.get('import') === 'shortcut') {
+        window.history.replaceState({}, '', window.location.pathname);
+        showToast('「PDFファイルを選択」をタップして取り込んでください', 'info');
+      }
+    });
+  </script>
+</body>
+</html>
